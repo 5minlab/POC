@@ -1,0 +1,30 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+.yarn/
+dist/
+build/
+
+# Logs/env
+*.log
+.env
+.env.*
+
+# Misc
+coverage/
+*.tmp
+*.swp
+~$*
