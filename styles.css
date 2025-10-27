@@ -28,7 +28,7 @@ body {
   /* Show Blacksmith image in the left panel */
   background-image: url('Assets/Blacksmith.png');
   background-size: 100% auto; /* fill by width */
-  background-position: center center; /* vertically centered */
+  background-position: center top; /* align image to top */
   background-repeat: no-repeat;
   background-color: #fff;
 }
