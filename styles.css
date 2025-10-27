@@ -32,5 +32,47 @@ body {
   background-repeat: no-repeat;
   background-color: #fff;
 }
+
+/* boxes overlay */
+.panel.left { position: relative; }
+.boxes-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.draggable-box {
+  position: absolute;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.5); /* semi-transparent */
+  border: 2px dashed rgba(0,0,0,0.4);
+  border-radius: 6px;
+  resize: both;
+  overflow: auto; /* show resize handle */
+  min-width: 80px;
+  min-height: 60px;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.box-handle {
+  height: 22px;
+  background: rgba(0,0,0,0.2);
+  cursor: move;
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+}
+
+.box-title {
+  padding: 6px 8px;
+  font-size: 14px;
+  line-height: 1.2;
+  outline: none;
+  user-select: text;
+}
+
+.box-title:empty::before {
+  content: '이름을 입력하세요';
+  color: #666;
+}
 .panel.center { border-right: var(--divider-width) solid var(--divider-color); }
 /* .panel.right has no right border */

@@ -8,9 +8,33 @@
   </head>
   <body>
     <main class="layout" aria-label="Three column layout">
-      <section class="panel left" aria-label="Left panel"></section>
+      <section class="panel left" aria-label="Left panel">
+        <div class="boxes-layer" aria-label="Draggable boxes layer">
+          <div class="draggable-box" style="left: 4%; top: 4%; width: 22%; height: 18%;" data-id="box1">
+            <div class="box-handle" title="Drag"></div>
+            <div class="box-title" contenteditable="true" spellcheck="false">Box 1</div>
+          </div>
+          <div class="draggable-box" style="left: 32%; top: 6%; width: 24%; height: 20%;" data-id="box2">
+            <div class="box-handle" title="Drag"></div>
+            <div class="box-title" contenteditable="true" spellcheck="false">Box 2</div>
+          </div>
+          <div class="draggable-box" style="left: 62%; top: 10%; width: 26%; height: 22%;" data-id="box3">
+            <div class="box-handle" title="Drag"></div>
+            <div class="box-title" contenteditable="true" spellcheck="false">Box 3</div>
+          </div>
+          <div class="draggable-box" style="left: 10%; top: 36%; width: 28%; height: 24%;" data-id="box4">
+            <div class="box-handle" title="Drag"></div>
+            <div class="box-title" contenteditable="true" spellcheck="false">Box 4</div>
+          </div>
+          <div class="draggable-box" style="left: 46%; top: 46%; width: 30%; height: 26%;" data-id="box5">
+            <div class="box-handle" title="Drag"></div>
+            <div class="box-title" contenteditable="true" spellcheck="false">Box 5</div>
+          </div>
+        </div>
+      </section>
       <section class="panel center" aria-label="Center panel"></section>
       <section class="panel right" aria-label="Right panel"></section>
     </main>
+    <script src="boxes.js"></script>
   </body>
 </html>
