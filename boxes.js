@@ -18,11 +18,15 @@
     let offsetX = 0, offsetY = 0;
 
     function onPointerDown(e){
+      // If editing the title, do not start dragging
+      if (e.target && e.target.closest('.box-title')) {
+        return;
+      }
       dragging = true;
       const br = box.getBoundingClientRect();
       offsetX = e.clientX - br.left;
       offsetY = e.clientY - br.top;
-      handle.setPointerCapture(e.pointerId);
+      try { handle.setPointerCapture(e.pointerId); } catch {}
     }
 
     function onPointerMove(e){
