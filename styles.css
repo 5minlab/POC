@@ -1,0 +1,28 @@
+/* 1:2:1 three-column layout with solid dividers */
+:root {
+  --divider-color: #000;
+  --divider-width: 1px;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: #fff;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr; /* 1:2:1 ratio */
+  min-height: 100vh; /* fill viewport height */
+}
+
+.panel {
+  min-height: 100vh;
+}
+
+/* solid dividers between the 3 parts */
+.panel.left { border-right: var(--divider-width) solid var(--divider-color); }
+.panel.center { border-right: var(--divider-width) solid var(--divider-color); }
+/* .panel.right has no right border */
