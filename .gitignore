@@ -3,7 +3,9 @@
 Thumbs.db
 
 # Editors
-.vscode/
+# Ignore all .vscode files except tasks.json so the auto-run task is shared
+.vscode/*
+!.vscode/tasks.json
 .idea/
 
 # Python
