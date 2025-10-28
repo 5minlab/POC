@@ -2,6 +2,8 @@
 :root {
   --divider-color: #000;
   --divider-width: 1px;
+  --inv-cell: 40px; /* inventory cell size */
+  --inv-gap: 4px;   /* gap between cells */
 }
 
 * { box-sizing: border-box; }
@@ -39,6 +41,8 @@ body {
 .boxes-layer {
   position: absolute;
   inset: 0;
+  /* Allow clicks to pass through empty areas so inventory is usable */
+  pointer-events: none;
 }
 
 .draggable-box {
@@ -53,6 +57,8 @@ body {
   min-height: 28px; /* slightly above handle height to keep header visible */
   max-width: 100%;
   max-height: 100%;
+  /* Restore interaction for boxes only */
+  pointer-events: auto;
 }
 
 .box-handle {
@@ -86,3 +92,33 @@ body {
 }
 .panel.center { border-right: var(--divider-width) solid var(--divider-color); }
 /* .panel.right has no right border */
+
+/* Inventory grid at the bottom of the left panel */
+.inventory {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 8px;
+  display: grid;
+  grid-template-columns: repeat(12, var(--inv-cell));
+  grid-template-rows: repeat(12, var(--inv-cell));
+  gap: var(--inv-gap);
+  padding: 8px;
+  background: rgba(255,255,255,0.7);
+  border: 1px solid rgba(0,0,0,0.4);
+  border-radius: 8px;
+  z-index: 2; /* above background and base layer */
+  /* Constrain to panel: size computed via variables */
+  width: calc(var(--inv-cell) * 12 + var(--inv-gap) * 11 + 16px);
+  height: calc(var(--inv-cell) * 12 + var(--inv-gap) * 11 + 16px);
+  max-width: calc(100% - 16px);
+}
+
+.inventory .slot {
+  width: var(--inv-cell);
+  height: var(--inv-cell);
+  background: rgba(255,255,255,0.5);
+  border: 1px solid rgba(0,0,0,0.25);
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3);
+}
