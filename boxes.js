@@ -12,6 +12,7 @@
 
   // ---- Persistence helpers ----
   const LS_KEY = 'poc_boxes_state_v1';
+  let bootstrapping = true; // ignore initial resize saves to prevent drift
 
   function loadState(){
     try {
@@ -35,21 +36,22 @@
   function getBoxStateFromDOM(box){
     const pr = panelRect();
     const rect = box.getBoundingClientRect();
-    const prLeft = pr.left;
-    const prTop = pr.top;
-    const leftPx = rect.left - prLeft;
-    const topPx  = rect.top  - prTop;
-    const widthPx = rect.width;
-    const heightPx = rect.height;
+    const s = box.style;
     const title = (box.querySelector('.box-title')?.textContent || '').trim();
-
-    // Convert to percentages relative to panel size
     const toPct = (px, base) => base > 0 ? (px / base) * 100 : 0;
+    const endsPct = (v) => typeof v === 'string' && v.trim().endsWith('%');
+    const round3 = (x) => Math.round(x * 1000) / 1000;
+
+    const left = endsPct(s.left) ? parseFloat(s.left) : toPct(rect.left - pr.left, pr.width);
+    const top = endsPct(s.top) ? parseFloat(s.top) : toPct(rect.top - pr.top, pr.height);
+    const width = endsPct(s.width) ? parseFloat(s.width) : toPct(rect.width, pr.width);
+    const height = endsPct(s.height) ? parseFloat(s.height) : toPct(rect.height, pr.height);
+
     return {
-      left: toPct(leftPx, pr.width),
-      top: toPct(topPx, pr.height),
-      width: toPct(widthPx, pr.width),
-      height: toPct(heightPx, pr.height),
+      left: round3(left),
+      top: round3(top),
+      width: round3(width),
+      height: round3(height),
       title,
     };
   }
@@ -101,8 +103,10 @@
       const newTopPx  = clamp(e.clientY - pr.top  - offsetY, 0, pr.height - box.offsetHeight);
       // Set as percentages so layout scales with panel size
       const toPct = (px, base) => base > 0 ? (px / base) * 100 : 0;
-      box.style.left = `${toPct(newLeftPx, pr.width)}%`;
-      box.style.top  = `${toPct(newTopPx, pr.height)}%`;
+      const leftPct = toPct(newLeftPx, pr.width);
+      const topPct = toPct(newTopPx, pr.height);
+      box.style.left = `${leftPct}%`;
+      box.style.top  = `${topPct}%`;
     }
 
     function onPointerUp(e){
@@ -133,7 +137,7 @@
     // Save on size changes via CSS resize handle
     const ro = new ResizeObserver(() => {
       // Debounce rapid size changes
-      queueSaveBox(box);
+      if (!bootstrapping) queueSaveBox(box);
     });
     try { ro.observe(box); } catch {}
   }
@@ -141,6 +145,7 @@
   // Per-box debounced save
   const saveTimers = new Map();
   function queueSaveBox(box){
+    if (bootstrapping) return;
     const id = getBoxId(box);
     if (!id) return;
     if (saveTimers.has(id)) window.clearTimeout(saveTimers.get(id));
@@ -155,4 +160,12 @@
   }
 
   document.querySelectorAll('.draggable-box').forEach(setupBox);
+
+  // Turn off bootstrapping after initial layout stabilizes
+  // Use two frames + small timeout to allow fonts/images to settle
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      setTimeout(() => { bootstrapping = false; }, 100);
+    });
+  });
 })();
