@@ -24,8 +24,8 @@
   function layoutInventory(){
     const cs = getComputedStyle(inv);
     const gap = parseFloat(cs.getPropertyValue('--inv-gap')) || 4;
-    // Inventory padding (both sides) from CSS is 8px
-    const pad = 8;
+    // No container padding to maximize grid area
+    const pad = 0;
     const sideGutter = 8;  // keep small side gutter from panel edges
     const topGutter = 8;   // reserve a small top gutter so it won't cross upper area
     const bottomGutter = 8; // matches CSS bottom: 8px
@@ -37,11 +37,11 @@
     const maxW = Math.max(0, panelWidth - sideGutter * 2);
     const maxH = Math.max(0, panelHeight - (topGutter + bottomGutter));
 
-    // For a 12x12 grid: size = 12*cell + 11*gap + 2*pad
-    const cellFromW = (maxW - (11 * gap) - (2 * pad)) / 12;
-    const cellFromH = (maxH - (11 * gap) - (2 * pad)) / 12;
-    let cell = Math.min(40, cellFromW, cellFromH); // do not exceed base cell size 40px
-    cell = Math.max(12, cell); // ensure clickable min size
+  // For a 12x12 grid: size = 12*cell + 11*gap + 2*pad (pad=0 here)
+  const cellFromW = (maxW - (11 * gap) - (2 * pad)) / 12;
+  const cellFromH = (maxH - (11 * gap) - (2 * pad)) / 12;
+  let cell = Math.min(cellFromW, cellFromH); // maximize within constraints
+  cell = Math.max(12, cell); // ensure clickable min size
 
     // Set CSS variable to drive width/height and grid sizing
     inv.style.setProperty('--inv-cell', px(cell) + 'px');

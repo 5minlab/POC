@@ -103,14 +103,15 @@ body {
   grid-template-columns: repeat(12, var(--inv-cell));
   grid-template-rows: repeat(12, var(--inv-cell));
   gap: var(--inv-gap);
-  padding: 8px;
-  background: rgba(255,255,255,0.7);
-  border: 1px solid rgba(0,0,0,0.4);
-  border-radius: 8px;
+  /* No surrounding box/border/background to maximize grid area */
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
   z-index: 2; /* above background and base layer */
   /* Constrain to panel: size computed via variables */
-  width: calc(var(--inv-cell) * 12 + var(--inv-gap) * 11 + 16px);
-  height: calc(var(--inv-cell) * 12 + var(--inv-gap) * 11 + 16px);
+  width: calc(var(--inv-cell) * 12 + var(--inv-gap) * 11);
+  height: calc(var(--inv-cell) * 12 + var(--inv-gap) * 11);
   max-width: calc(100% - 16px);
 }
 
