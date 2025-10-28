@@ -51,26 +51,32 @@
   layoutInventory();
   window.addEventListener('resize', layoutInventory);
 
-  // Add a 1x2 Hammer item if not present
-  if (!inv.querySelector('[data-item-id="hammer"]')) {
-    const item = document.createElement('div');
-    item.className = 'item hammer';
-    item.setAttribute('data-item-id', 'hammer');
-    item.setAttribute('role', 'img');
-    item.setAttribute('aria-label', 'Hammer (1x2)');
-    // Place at column 1, row 1, width 1, height 2
-    item.style.setProperty('--col', 1);
-    item.style.setProperty('--row', 1);
+  // Ensure a Hammer item exists and enforce 1x2 dimensions
+  (function ensureHammer(){
+    let item = inv.querySelector('[data-item-id="hammer"]')
+             || document.querySelector('.box-content [data-item-id="hammer"]');
+    if (!item) {
+      item = document.createElement('div');
+      item.className = 'item hammer';
+      item.setAttribute('data-item-id', 'hammer');
+      item.setAttribute('role', 'img');
+      item.setAttribute('aria-label', 'Hammer (1x2)');
+      // Default location in inventory at 1,1
+      inv.appendChild(item);
+      const label = document.createElement('div');
+      label.className = 'label';
+      label.textContent = '🔨';
+      item.appendChild(label);
+    }
+    // Enforce 1x2
     item.style.setProperty('--w', 1);
     item.style.setProperty('--h', 2);
-
-    const label = document.createElement('div');
-    label.className = 'label';
-    label.textContent = '🔨';
-    item.appendChild(label);
-
-    inv.appendChild(item);
-  }
+    // If in inventory and missing position, default to 1,1
+    if (item.parentElement === inv) {
+      if (!item.style.getPropertyValue('--col')) item.style.setProperty('--col', 1);
+      if (!item.style.getPropertyValue('--row')) item.style.setProperty('--row', 1);
+    }
+  })();
 
   // ---- Drag and Drop between inventory and boxes ----
   const LS_ITEMS = 'poc_items_state_v1';
@@ -147,6 +153,26 @@
     const id = item.dataset.itemId;
     if (id && itemsState[id]) applyItemState(item, itemsState[id]);
   });
+  // Enforce hammer size in saved state as 1x2 regardless of previous values
+  (function enforceHammerState(){
+    const hammer = document.querySelector('[data-item-id="hammer"]');
+    if (!hammer) return;
+    const st = loadItems();
+    const cur = st['hammer'] || {};
+    cur.w = 1; cur.h = 2;
+    if (!cur.loc) cur.loc = (hammer.parentElement === inv) ? 'inv' : 'box';
+    if (cur.loc === 'inv') {
+      const col = parseInt(hammer.style.getPropertyValue('--col') || '1', 10) || 1;
+      const row = parseInt(hammer.style.getPropertyValue('--row') || '1', 10) || 1;
+      cur.col = Math.min(12, Math.max(1, col));
+      cur.row = Math.min(12, Math.max(1, row));
+    } else if (cur.loc === 'box') {
+      const boxEl = hammer.closest('.draggable-box');
+      if (boxEl) cur.boxId = boxEl.getAttribute('data-id') || cur.boxId;
+    }
+    st['hammer'] = cur;
+    saveItems(st);
+  })();
 
   function startDrag(e){
     const item = e.currentTarget;
