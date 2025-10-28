@@ -51,7 +51,7 @@
   layoutInventory();
   window.addEventListener('resize', layoutInventory);
 
-  // Ensure a Hammer item exists and enforce 1x2 dimensions
+  // Ensure a Hammer item exists and enforce 2x1 dimensions
   (function ensureHammer(){
     let item = inv.querySelector('[data-item-id="hammer"]')
              || document.querySelector('.box-content [data-item-id="hammer"]');
@@ -60,7 +60,7 @@
       item.className = 'item hammer';
       item.setAttribute('data-item-id', 'hammer');
       item.setAttribute('role', 'img');
-      item.setAttribute('aria-label', 'Hammer (1x2)');
+      item.setAttribute('aria-label', 'Hammer (2x1)');
       // Default location in inventory at 1,1
       inv.appendChild(item);
       const label = document.createElement('div');
@@ -68,9 +68,9 @@
       label.textContent = '🔨';
       item.appendChild(label);
     }
-    // Enforce 1x2
-    item.style.setProperty('--w', 1);
-    item.style.setProperty('--h', 2);
+    // Enforce 2x1 (n x m: n=width, m=height)
+    item.style.setProperty('--w', 2);
+    item.style.setProperty('--h', 1);
     // If in inventory and missing position, default to 1,1
     if (item.parentElement === inv) {
       if (!item.style.getPropertyValue('--col')) item.style.setProperty('--col', 1);
@@ -156,13 +156,13 @@
     const id = item.dataset.itemId;
     if (id && itemsState[id]) applyItemState(item, itemsState[id]);
   });
-  // Enforce hammer size in saved state as 1x2 regardless of previous values
+  // Enforce hammer size in saved state as 2x1 regardless of previous values
   (function enforceHammerState(){
     const hammer = document.querySelector('[data-item-id="hammer"]');
     if (!hammer) return;
     const st = loadItems();
     const cur = st['hammer'] || {};
-    cur.w = 1; cur.h = 2;
+    cur.w = 2; cur.h = 1;
     if (!cur.loc) cur.loc = (hammer.parentElement === inv) ? 'inv' : 'box';
     if (cur.loc === 'inv') {
       const col = parseInt(hammer.style.getPropertyValue('--col') || '1', 10) || 1;
