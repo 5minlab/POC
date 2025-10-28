@@ -50,4 +50,25 @@
   // Initial and on resize
   layoutInventory();
   window.addEventListener('resize', layoutInventory);
+
+  // Add a 1x2 Hammer item if not present
+  if (!inv.querySelector('[data-item-id="hammer"]')) {
+    const item = document.createElement('div');
+    item.className = 'item hammer';
+    item.setAttribute('data-item-id', 'hammer');
+    item.setAttribute('role', 'img');
+    item.setAttribute('aria-label', 'Hammer (1x2)');
+    // Place at column 1, row 1, width 1, height 2
+    item.style.setProperty('--col', 1);
+    item.style.setProperty('--row', 1);
+    item.style.setProperty('--w', 1);
+    item.style.setProperty('--h', 2);
+
+    const label = document.createElement('div');
+    label.className = 'label';
+    label.textContent = '🔨';
+    item.appendChild(label);
+
+    inv.appendChild(item);
+  }
 })();
