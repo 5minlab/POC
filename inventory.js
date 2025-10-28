@@ -71,4 +71,151 @@
 
     inv.appendChild(item);
   }
+
+  // ---- Drag and Drop between inventory and boxes ----
+  const LS_ITEMS = 'poc_items_state_v1';
+  function loadItems(){
+    try {
+      const raw = localStorage.getItem(LS_ITEMS);
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  }
+  function saveItems(state){
+    try { localStorage.setItem(LS_ITEMS, JSON.stringify(state)); } catch {}
+  }
+
+  function getCellSize(){
+    const cs = getComputedStyle(inv);
+    return {
+      cell: parseFloat(cs.getPropertyValue('--inv-cell')) || 40,
+      gap: parseFloat(cs.getPropertyValue('--inv-gap')) || 4,
+    };
+  }
+  function invRect(){ return inv.getBoundingClientRect(); }
+
+  function pointToCell(clientX, clientY){
+    const r = invRect();
+    const {cell, gap} = getCellSize();
+    const x = clientX - r.left;
+    const y = clientY - r.top;
+    const totalW = 12 * cell + 11 * gap;
+    const totalH = 12 * cell + 11 * gap;
+    if (x < 0 || y < 0 || x > totalW || y > totalH) return null;
+    const unit = cell + gap;
+    const col = Math.floor((x + 0.0001) / unit) + 1;
+    const row = Math.floor((y + 0.0001) / unit) + 1;
+    if (col < 1 || row < 1 || col > 12 || row > 12) return null;
+    return {col, row};
+  }
+
+  function findBoxContentAt(clientX, clientY){
+    const contents = document.querySelectorAll('.draggable-box .box-content');
+    for (const el of contents) {
+      const r = el.getBoundingClientRect();
+      if (clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom) {
+        return el;
+      }
+    }
+    return null;
+  }
+
+  function applyItemState(item, st){
+    const id = item.dataset.itemId;
+    if (!id || !st) return;
+    if (st.loc === 'inv') {
+      if (item.parentElement !== inv) inv.appendChild(item);
+      item.classList.add('in-inventory');
+      item.style.setProperty('--col', st.col);
+      item.style.setProperty('--row', st.row);
+      item.style.setProperty('--w', st.w || 1);
+      item.style.setProperty('--h', st.h || 1);
+    } else if (st.loc === 'box' && st.boxId) {
+      const box = document.querySelector(`.draggable-box[data-id="${st.boxId}"] .box-content`);
+      if (box) {
+        box.appendChild(item);
+        item.classList.remove('in-inventory');
+        // Clear inventory positioning
+        item.style.removeProperty('--col');
+        item.style.removeProperty('--row');
+      }
+    }
+  }
+
+  // Initialize from saved state
+  const itemsState = loadItems();
+  document.querySelectorAll('.inventory .item, .box-content .item').forEach((item) => {
+    const id = item.dataset.itemId;
+    if (id && itemsState[id]) applyItemState(item, itemsState[id]);
+  });
+
+  function startDrag(e){
+    const item = e.currentTarget;
+    const id = item.dataset.itemId;
+    if (!id) return;
+    e.preventDefault();
+    const pointerId = e.pointerId;
+    item.setPointerCapture?.(pointerId);
+    const startRect = item.getBoundingClientRect();
+    const offsetX = e.clientX - startRect.left;
+    const offsetY = e.clientY - startRect.top;
+
+    // Drag ghost
+    const ghost = item.cloneNode(true);
+    ghost.style.position = 'fixed';
+    ghost.style.left = (e.clientX - offsetX) + 'px';
+    ghost.style.top = (e.clientY - offsetY) + 'px';
+    ghost.style.pointerEvents = 'none';
+    ghost.style.opacity = '0.9';
+    ghost.style.zIndex = '9999';
+    document.body.appendChild(ghost);
+
+    function onMove(ev){
+      ghost.style.left = (ev.clientX - offsetX) + 'px';
+      ghost.style.top = (ev.clientY - offsetY) + 'px';
+    }
+    function onUp(ev){
+      item.releasePointerCapture?.(pointerId);
+      document.removeEventListener('pointermove', onMove, true);
+      document.removeEventListener('pointerup', onUp, true);
+      const dropCell = pointToCell(ev.clientX, ev.clientY);
+      const boxContent = findBoxContentAt(ev.clientX, ev.clientY);
+      const st = loadItems();
+      if (dropCell) {
+        // Drop to inventory grid (snap to cell), ensure fits within bounds for its size
+        const w = parseInt(item.style.getPropertyValue('--w') || '1', 10) || 1;
+        const h = parseInt(item.style.getPropertyValue('--h') || '1', 10) || 1;
+        const col = Math.min(12 - (w - 1), Math.max(1, dropCell.col));
+        const row = Math.min(12 - (h - 1), Math.max(1, dropCell.row));
+        if (item.parentElement !== inv) inv.appendChild(item);
+        item.classList.add('in-inventory');
+        item.style.setProperty('--col', col);
+        item.style.setProperty('--row', row);
+        st[id] = { loc: 'inv', col, row, w, h };
+        saveItems(st);
+      } else if (boxContent) {
+        // Drop into a box area
+        boxContent.appendChild(item);
+        item.classList.remove('in-inventory');
+        item.style.removeProperty('--col');
+        item.style.removeProperty('--row');
+        const box = boxContent.closest('.draggable-box');
+        const boxId = box?.getAttribute('data-id');
+        if (boxId) {
+          const w = parseInt(item.style.getPropertyValue('--w') || '1', 10) || 1;
+          const h = parseInt(item.style.getPropertyValue('--h') || '1', 10) || 1;
+          st[id] = { loc: 'box', boxId, w, h };
+          saveItems(st);
+        }
+      }
+      ghost.remove();
+    }
+    document.addEventListener('pointermove', onMove, true);
+    document.addEventListener('pointerup', onUp, true);
+  }
+
+  // Bind drag handlers to all items (inventory or boxes)
+  function bindItemDrag(item){
+    item.addEventListener('pointerdown', startDrag);
+  }
+  document.querySelectorAll('.inventory .item, .box-content .item').forEach(bindItemDrag);
 })();

@@ -90,6 +90,27 @@ body {
   content: '이름을 입력하세요';
   color: #666;
 }
+.box-content {
+  padding: 6px 8px 8px;
+  min-height: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.box-content .item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--w, 1) * var(--inv-cell) + (var(--w, 1) - 1) * var(--inv-gap));
+  height: calc(var(--h, 1) * var(--inv-cell) + (var(--h, 1) - 1) * var(--inv-gap));
+  background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(230,230,230,0.9));
+  border: 1px solid rgba(0,0,0,0.35);
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2), inset 0 0 0 1px rgba(255,255,255,0.6);
+  user-select: none;
+}
 .panel.center { border-right: var(--divider-width) solid var(--divider-color); }
 /* .panel.right has no right border */
 
@@ -108,11 +129,12 @@ body {
   background: transparent;
   border: none;
   border-radius: 0;
-  z-index: 2; /* above background and base layer */
+  z-index: 1; /* place below floating items/boxes; items will be on top */
   /* Constrain to panel: size computed via variables */
   width: calc(var(--inv-cell) * 12 + var(--inv-gap) * 11);
   height: calc(var(--inv-cell) * 12 + var(--inv-gap) * 11);
   max-width: calc(100% - 16px);
+  pointer-events: none; /* let events pass through to boxes; items enable their own events */
 }
 
 .inventory .slot {
@@ -122,6 +144,7 @@ body {
   border: 1px solid rgba(0,0,0,0.25);
   border-radius: 4px;
   box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3);
+  pointer-events: none;
 }
 
 /* Inventory items (overlayed above slots) */
@@ -141,6 +164,9 @@ body {
   box-shadow: 0 1px 2px rgba(0,0,0,0.2), inset 0 0 0 1px rgba(255,255,255,0.6);
   z-index: 3;
   user-select: none;
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
 }
 
 .inventory .item .label {
