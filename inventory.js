@@ -135,6 +135,7 @@
       item.style.setProperty('--row', st.row);
       item.style.setProperty('--w', st.w || 1);
       item.style.setProperty('--h', st.h || 1);
+      item.style.removeProperty('--scale');
     } else if (st.loc === 'box' && st.boxId) {
       const box = document.querySelector(`.draggable-box[data-id="${st.boxId}"] .box-content`);
       if (box) {
@@ -143,6 +144,8 @@
         // Clear inventory positioning
         item.style.removeProperty('--col');
         item.style.removeProperty('--row');
+        // Scale to fit box
+        scaleItemToBox(item, box);
       }
     }
   }
@@ -216,6 +219,7 @@
         item.classList.add('in-inventory');
         item.style.setProperty('--col', col);
         item.style.setProperty('--row', row);
+        item.style.removeProperty('--scale');
         st[id] = { loc: 'inv', col, row, w, h };
         saveItems(st);
       } else if (boxContent) {
@@ -231,6 +235,8 @@
           const h = parseInt(item.style.getPropertyValue('--h') || '1', 10) || 1;
           st[id] = { loc: 'box', boxId, w, h };
           saveItems(st);
+          // Scale item to fit inside the box content
+          scaleItemToBox(item, boxContent);
         }
       }
       ghost.remove();
@@ -244,4 +250,41 @@
     item.addEventListener('pointerdown', startDrag);
   }
   document.querySelectorAll('.inventory .item, .box-content .item').forEach(bindItemDrag);
+
+  // Scale item to fit into the given box content area if it's larger
+  function scaleItemToBox(item, boxContent){
+    const w = parseInt(item.style.getPropertyValue('--w') || '1', 10) || 1;
+    const h = parseInt(item.style.getPropertyValue('--h') || '1', 10) || 1;
+    const {cell, gap} = getCellSize();
+    const baseW = w * cell + (w - 1) * gap;
+    const baseH = h * cell + (h - 1) * gap;
+    const r = boxContent.getBoundingClientRect();
+    const availW = Math.max(0, r.width);
+    const availH = Math.max(0, r.height);
+    let scale = 1;
+    if (baseW > 0 && baseH > 0) {
+      scale = Math.min(availW / baseW, availH / baseH, 1);
+    }
+    // Apply scaling (will be 1 if it already fits)
+    item.style.setProperty('--scale', String(scale));
+  }
+
+  // Recompute scaling when boxes resize
+  const boxContents = document.querySelectorAll('.draggable-box .box-content');
+  const ro = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      const el = entry.target;
+      el.querySelectorAll('.item').forEach((it) => scaleItemToBox(it, el));
+    }
+  });
+  boxContents.forEach((el) => {
+    try { ro.observe(el); } catch {}
+  });
+
+  // Also update on window resize
+  window.addEventListener('resize', () => {
+    boxContents.forEach((el) => {
+      el.querySelectorAll('.item').forEach((it) => scaleItemToBox(it, el));
+    });
+  });
 })();
