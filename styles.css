@@ -49,8 +49,8 @@ body {
   border-radius: 6px;
   resize: both;
   overflow: auto; /* show resize handle */
-  min-width: 80px;
-  min-height: 60px;
+  min-width: 48px;
+  min-height: 28px; /* slightly above handle height to keep header visible */
   max-width: 100%;
   max-height: 100%;
 }
