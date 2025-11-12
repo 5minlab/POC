@@ -83,30 +83,13 @@
   layoutInventory();
   window.addEventListener('resize', layoutInventory);
 
-  // Ensure a Hammer item exists and enforce 2x1 dimensions
-  (function ensureHammer(){
-    let item = inv.querySelector('[data-item-id="hammer"]')
-             || document.querySelector('.box-content [data-item-id="hammer"]');
-    if (!item) {
-      item = document.createElement('div');
-      item.className = 'item hammer';
-      item.setAttribute('data-item-id', 'hammer');
-      item.setAttribute('role', 'img');
-      item.setAttribute('aria-label', 'Hammer (2x1)');
-      // Default location in inventory at 1,1
-      inv.appendChild(item);
-      const label = document.createElement('div');
-      label.className = 'label';
-      label.textContent = '🔨';
-      item.appendChild(label);
-    }
-    // Enforce 2x1 (n x m: n=width, m=height)
-    item.style.setProperty('--w', 2);
-    item.style.setProperty('--h', 1);
-    // If in inventory and missing position, default to 1,1
-    if (item.parentElement === inv) {
-      if (!item.style.getPropertyValue('--col')) item.style.setProperty('--col', 1);
-      if (!item.style.getPropertyValue('--row')) item.style.setProperty('--row', 1);
+  // Remove hammer item entirely and clear its saved state
+  (function removeHammer(){
+    document.querySelectorAll('[data-item-id="hammer"]').forEach(el => el.remove());
+    const st = loadItems();
+    if (st && st['hammer']) {
+      delete st['hammer'];
+      saveItems(st);
     }
   })();
 
@@ -193,26 +176,7 @@
     const id = item.dataset.itemId;
     if (id && itemsState[id]) applyItemState(item, itemsState[id]);
   });
-  // Enforce hammer size in saved state as 2x1 regardless of previous values
-  (function enforceHammerState(){
-    const hammer = document.querySelector('[data-item-id="hammer"]');
-    if (!hammer) return;
-    const st = loadItems();
-    const cur = st['hammer'] || {};
-    cur.w = 2; cur.h = 1;
-    if (!cur.loc) cur.loc = (hammer.parentElement === inv) ? 'inv' : 'box';
-    if (cur.loc === 'inv') {
-      const col = parseInt(hammer.style.getPropertyValue('--col') || '1', 10) || 1;
-      const row = parseInt(hammer.style.getPropertyValue('--row') || '1', 10) || 1;
-      cur.col = Math.min(COLS - (cur.w - 1), Math.max(1, col));
-      cur.row = Math.min(ROWS - (cur.h - 1), Math.max(1, row));
-    } else if (cur.loc === 'box') {
-      const boxEl = hammer.closest('.draggable-box');
-      if (boxEl) cur.boxId = boxEl.getAttribute('data-id') || cur.boxId;
-    }
-    st['hammer'] = cur;
-    saveItems(st);
-  })();
+  // No hammer state enforcement needed since it's removed
 
   function startDrag(e){
     const item = e.currentTarget;
