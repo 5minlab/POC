@@ -2,10 +2,12 @@
   'use strict';
   const inv = document.querySelector('.inventory');
   const panel = document.querySelector('.panel.left');
+  const COLS = 10; // width (n)
+  const ROWS = 12; // height (m)
   if (!inv || !panel) return;
 
   // Populate 12x12 slots once
-  const total = 12 * 12;
+  const total = COLS * ROWS;
   if (!inv.hasChildNodes()) {
     const frag = document.createDocumentFragment();
     for (let i = 0; i < total; i++) {
@@ -27,24 +29,54 @@
     // No container padding to maximize grid area
     const pad = 0;
     const sideGutter = 8;  // keep small side gutter from panel edges
-    const topGutter = 8;   // reserve a small top gutter so it won't cross upper area
-    const bottomGutter = 8; // matches CSS bottom: 8px
+    const gapBelowImage = 8;   // space between image bottom and inventory
+    const bottomGutter = 8; // small gutter to panel bottom
 
     const panelWidth = panel.clientWidth;
     const panelHeight = panel.clientHeight;
 
-    // Available size for the inventory box
-    const maxW = Math.max(0, panelWidth - sideGutter * 2);
-    const maxH = Math.max(0, panelHeight - (topGutter + bottomGutter));
+    // Compute background image rendered height: background-size: 100% auto
+    const panelStyle = getComputedStyle(panel);
+    let bgUrl = panelStyle.backgroundImage || '';
+    const match = bgUrl.match(/url\(["']?(.*?)["']?\)/);
+    let imageHeightPx = 0;
+    function setTopAndSize(){
+      // Position inventory immediately under the image
+      inv.style.top = (imageHeightPx + gapBelowImage) + 'px';
+      // Available size for the inventory box
+      const invTop = imageHeightPx + gapBelowImage;
+      const maxW = Math.max(0, panelWidth - sideGutter * 2);
+      const maxH = Math.max(0, panelHeight - (invTop + bottomGutter));
+      // For a COLS x ROWS grid: size = COLS*cell + (COLS-1)*gap + 2*pad
+      const cellFromW = (maxW - ((COLS - 1) * gap) - (2 * pad)) / COLS;
+      const cellFromH = (maxH - ((ROWS - 1) * gap) - (2 * pad)) / ROWS;
+      let cell = Math.min(cellFromW, cellFromH);
+      cell = Math.max(12, cell);
+      inv.style.setProperty('--inv-cell', px(cell) + 'px');
+    }
 
-  // For a 12x12 grid: size = 12*cell + 11*gap + 2*pad (pad=0 here)
-  const cellFromW = (maxW - (11 * gap) - (2 * pad)) / 12;
-  const cellFromH = (maxH - (11 * gap) - (2 * pad)) / 12;
-  let cell = Math.min(cellFromW, cellFromH); // maximize within constraints
-  cell = Math.max(12, cell); // ensure clickable min size
-
-    // Set CSS variable to drive width/height and grid sizing
-    inv.style.setProperty('--inv-cell', px(cell) + 'px');
+    if (match && match[1]){
+      const url = match[1];
+      // Load intrinsic size to compute rendered height
+      const img = new Image();
+      img.onload = () => {
+        if (img.naturalWidth > 0) {
+          const ratio = img.naturalHeight / img.naturalWidth;
+          imageHeightPx = Math.round(panelWidth * ratio);
+        } else {
+          imageHeightPx = 0;
+        }
+        setTopAndSize();
+      };
+      // If already cached by browser, onload may fire synchronously
+      img.src = url;
+      // Fallback in case onload is delayed; compute once with zero height
+      setTopAndSize();
+    } else {
+      // No background image; pin to top gutter only
+      imageHeightPx = 0;
+      setTopAndSize();
+    }
   }
 
   // Initial and on resize
@@ -104,13 +136,13 @@
     const {cell, gap} = getCellSize();
     const x = clientX - r.left;
     const y = clientY - r.top;
-    const totalW = 12 * cell + 11 * gap;
-    const totalH = 12 * cell + 11 * gap;
+    const totalW = COLS * cell + (COLS - 1) * gap;
+    const totalH = ROWS * cell + (ROWS - 1) * gap;
     if (x < 0 || y < 0 || x > totalW || y > totalH) return null;
     const unit = cell + gap;
     const col = Math.floor((x + 0.0001) / unit) + 1;
     const row = Math.floor((y + 0.0001) / unit) + 1;
-    if (col < 1 || row < 1 || col > 12 || row > 12) return null;
+    if (col < 1 || row < 1 || col > COLS || row > ROWS) return null;
     return {col, row};
   }
 
@@ -131,10 +163,15 @@
     if (st.loc === 'inv') {
       if (item.parentElement !== inv) inv.appendChild(item);
       item.classList.add('in-inventory');
-      item.style.setProperty('--col', st.col);
-      item.style.setProperty('--row', st.row);
-      item.style.setProperty('--w', st.w || 1);
-      item.style.setProperty('--h', st.h || 1);
+      const w = st.w || 1;
+      const h = st.h || 1;
+      // Clamp to new grid bounds
+      const col = Math.min(COLS - (w - 1), Math.max(1, st.col || 1));
+      const row = Math.min(ROWS - (h - 1), Math.max(1, st.row || 1));
+      item.style.setProperty('--col', col);
+      item.style.setProperty('--row', row);
+      item.style.setProperty('--w', w);
+      item.style.setProperty('--h', h);
       item.style.removeProperty('--scale');
     } else if (st.loc === 'box' && st.boxId) {
       const box = document.querySelector(`.draggable-box[data-id="${st.boxId}"] .box-content`);
@@ -167,8 +204,8 @@
     if (cur.loc === 'inv') {
       const col = parseInt(hammer.style.getPropertyValue('--col') || '1', 10) || 1;
       const row = parseInt(hammer.style.getPropertyValue('--row') || '1', 10) || 1;
-      cur.col = Math.min(12, Math.max(1, col));
-      cur.row = Math.min(12, Math.max(1, row));
+      cur.col = Math.min(COLS - (cur.w - 1), Math.max(1, col));
+      cur.row = Math.min(ROWS - (cur.h - 1), Math.max(1, row));
     } else if (cur.loc === 'box') {
       const boxEl = hammer.closest('.draggable-box');
       if (boxEl) cur.boxId = boxEl.getAttribute('data-id') || cur.boxId;
@@ -213,8 +250,8 @@
         // Drop to inventory grid (snap to cell), ensure fits within bounds for its size
         const w = parseInt(item.style.getPropertyValue('--w') || '1', 10) || 1;
         const h = parseInt(item.style.getPropertyValue('--h') || '1', 10) || 1;
-        const col = Math.min(12 - (w - 1), Math.max(1, dropCell.col));
-        const row = Math.min(12 - (h - 1), Math.max(1, dropCell.row));
+        const col = Math.min(COLS - (w - 1), Math.max(1, dropCell.col));
+        const row = Math.min(ROWS - (h - 1), Math.max(1, dropCell.row));
         if (item.parentElement !== inv) inv.appendChild(item);
         item.classList.add('in-inventory');
         item.style.setProperty('--col', col);

@@ -122,7 +122,7 @@ body {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  bottom: 8px;
+  top: 0; /* actual offset below image set dynamically via JS */
   display: grid;
   grid-template-columns: repeat(12, var(--inv-cell));
   grid-template-rows: repeat(12, var(--inv-cell));
