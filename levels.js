@@ -87,9 +87,11 @@
     // Restore selection
     const st = loadState();
     // 최초 레벨은 1 (목록 첫 행이 레벨1이라고 가정)
-    const idx = Math.min(items.length - 1, Math.max(0, parseInt(st.levelIndex ?? '0', 10) || 0));
-    selectEl.value = String(idx);
+    const savedIdx = Math.min(items.length - 1, Math.max(0, parseInt(st.levelIndex ?? '0', 10) || 0));
     const curExp = Math.max(0, toNumber(st.currentExp ?? '0'));
+    // 현재 경험치에 맞춰 레벨 자동 보정
+    const idx = levelIndexFromExp(items, curExp);
+    selectEl.value = String(idx);
     if (expInput) expInput.value = String(curExp);
     updateTable(items, idx);
     updateInfo(items, idx, curExp);
@@ -121,17 +123,28 @@
     selectEl.addEventListener('change', () => {
       const idx = parseInt(selectEl.value, 10) || 0;
       const curExp = Math.max(0, toNumber(expInput?.value || '0'));
-      updateTable(items, idx);
-      updateInfo(items, idx, curExp);
+      // 만약 현재 경험치가 선택 레벨 목표를 초과하면 해당 경험치에 맞는 레벨로 보정
+      const resolved = levelIndexFromExp(items, curExp);
+      const finalIdx = resolved;
+      if (String(finalIdx) !== selectEl.value) selectEl.value = String(finalIdx);
+      updateTable(items, finalIdx);
+      updateInfo(items, finalIdx, curExp);
       const st = loadState();
-      saveState({ ...st, levelIndex: idx });
+      saveState({ ...st, levelIndex: finalIdx });
+      // notify
+      dispatchLevelChanged(items, finalIdx);
     });
     expInput?.addEventListener('input', () => {
-      const idx = parseInt(selectEl.value, 10) || 0;
       const curExp = Math.max(0, toNumber(expInput?.value || '0'));
-      updateInfo(items, idx, curExp);
+      // 현재 경험치로 레벨 자동 보정
+      const resolved = levelIndexFromExp(items, curExp);
+      if (String(resolved) !== selectEl.value) selectEl.value = String(resolved);
+      updateTable(items, resolved);
+      updateInfo(items, resolved, curExp);
       const st = loadState();
-      saveState({ ...st, currentExp: curExp });
+      saveState({ ...st, currentExp: curExp, levelIndex: resolved });
+      // notify
+      dispatchLevelChanged(items, resolved);
     });
   }
 
@@ -150,6 +163,15 @@
     tableBody.appendChild(tr);
   }
 
+  function levelIndexFromExp(items, exp){
+    let idx = 0;
+    for (let i = 0; i < items.length; i++){
+      const th = items[i]?.reqExpNum ?? 0;
+      if (exp >= th) idx = i; else break;
+    }
+    return idx;
+  }
+
   async function load(){
     try {
       if (errEl) { errEl.hidden = true; errEl.textContent = ''; }
@@ -159,12 +181,22 @@
       if (!items.length) throw new Error('empty');
       render(items);
       bind(items);
+      // initial notify
+      const idx = parseInt(selectEl.value, 10) || 0;
+      dispatchLevelChanged(items, idx);
     } catch (e){
       if (errEl){
         errEl.hidden = false;
         errEl.textContent = '레벨 데이터를 불러오지 못했습니다. 시트를 공개/게시했는지와 컬럼을 확인해주세요.';
       }
     }
+  }
+
+  function dispatchLevelChanged(items, idx){
+    const levelLabel = items?.[idx]?.level ?? String(idx+1);
+    try {
+      window.dispatchEvent(new CustomEvent('level:changed', { detail: { levelIndex: idx, level: levelLabel } }));
+    } catch {}
   }
 
   load();

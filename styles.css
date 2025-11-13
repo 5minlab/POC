@@ -216,6 +216,7 @@ body {
   margin: 0 0 12px 0;
   font-size: 18px;
 }
+.stat-points { margin: 4px 0 10px 0; font-size: 14px; color: #333; }
 .stats-list {
   display: flex;
   flex-direction: column;
@@ -231,6 +232,13 @@ body {
   background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(235,235,235,0.9));
   box-shadow: 0 1px 2px rgba(0,0,0,0.08), inset 0 0 0 1px rgba(255,255,255,0.6);
 }
+.stat-row .stat-label { width: 64px; font-weight: 600; }
+.stat-row .stat-value { min-width: 56px; text-align: right; font-variant-numeric: tabular-nums; }
+.stat-row .stat-controls { margin-left: auto; display: inline-flex; gap: 6px; align-items: center; }
+.stat-btn {
+  appearance: none; border: 1px solid rgba(0,0,0,0.3); background: #fff; border-radius: 6px; width: 28px; height: 28px; cursor: pointer;
+}
+.stat-alloc { min-width: 28px; text-align: center; font-variant-numeric: tabular-nums; }
 .stat-bullet {
   width: 10px;
   height: 10px;
