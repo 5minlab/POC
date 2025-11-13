@@ -176,3 +176,30 @@ body {
   font-size: calc(var(--inv-cell) * 0.6);
   line-height: 1;
 }
+
+/* Bottom-left toolbar for manual save/restore */
+.left-toolbar {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  display: flex;
+  gap: 8px;
+  z-index: 4; /* above inventory and boxes */
+}
+.left-toolbar button {
+  appearance: none;
+  border: 1px solid rgba(0,0,0,0.3);
+  background: rgba(255,255,255,0.9);
+  color: #111;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.6);
+}
+.left-toolbar button:hover {
+  background: #fff;
+}
+.left-toolbar button:active {
+  transform: translateY(1px);
+}
