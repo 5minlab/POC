@@ -79,11 +79,18 @@
         </div>
       </section>
       <section class="panel center" aria-label="Center panel"></section>
-      <section class="panel right" aria-label="Right panel"></section>
+      <section class="panel right" aria-label="Right panel">
+        <div class="stats-panel" aria-label="Blacksmith stats">
+          <h2 class="stats-title">대장장이 능력치</h2>
+          <div class="stats-list" role="list" aria-live="polite"></div>
+          <div class="stats-error" role="status" aria-live="assertive" hidden></div>
+        </div>
+      </section>
     </main>
     <script src="boxes.js"></script>
     <script src="inventory.js"></script>
     <script src="sheets.js"></script>
     <script src="controls.js"></script>
+    <script src="stats.js"></script>
   </body>
 </html>
