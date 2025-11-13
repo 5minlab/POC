@@ -89,11 +89,11 @@
             </label>
             <label class="current-exp-label">
               현재 경험치
-              <input type="number" class="current-exp-input" aria-label="현재 경험치" min="0" step="100" value="0" />
+              <input type="number" class="current-exp-input" aria-label="현재 경험치" min="0" step="10" value="0" />
             </label>
             <div class="exp-controls" aria-label="경험치 조정">
-              <button type="button" class="exp-btn exp-minus" title="경험치 -100">-100</button>
-              <button type="button" class="exp-btn exp-plus" title="경험치 +100">+100</button>
+              <button type="button" class="exp-btn exp-minus" title="경험치 -10">-10</button>
+              <button type="button" class="exp-btn exp-plus" title="경험치 +10">+10</button>
             </div>
             <div class="level-info" aria-live="polite"></div>
           </div>
@@ -101,7 +101,7 @@
             <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
               <div class="progress-fill" style="width:0%"></div>
             </div>
-            <div class="progress-text">0 / 다음 0</div>
+            <div class="progress-text">0 / 목표 0</div>
           </div>
           <div class="levels-table-wrap">
             <table class="levels-table" aria-label="레벨 테이블">
@@ -126,6 +126,6 @@
     <script src="sheets.js?v=20251113-5"></script>
     <script src="controls.js?v=20251113-5"></script>
     <script src="stats.js?v=20251113-14"></script>
-    <script src="levels.js?v=20251113-14"></script>
+    <script src="levels.js?v=20251113-15"></script>
   </body>
 </html>

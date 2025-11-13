@@ -180,12 +180,12 @@
     });
     expMinus?.addEventListener('click', () => {
       const cur = Math.max(0, toNumber(expInput?.value || '0'));
-      const next = Math.max(0, cur - 100);
+      const next = Math.max(0, cur - 10);
       setCurrentExp(next);
     });
     expPlus?.addEventListener('click', () => {
       const cur = Math.max(0, toNumber(expInput?.value || '0'));
-      const next = cur + 100;
+      const next = cur + 10;
       setCurrentExp(next);
     });
   }
