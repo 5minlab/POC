@@ -46,11 +46,11 @@
   }
 
   function detectColumns(headers){
-    // Try to find Level and Required EXP columns by common names (KR/EN)
-    const h = headers.map(x => x.toLowerCase());
-    const idxLevel = h.findIndex(x => ['레벨','level','lvl'].includes(x));
-    const idxReq = h.findIndex(x => ['필요경험치','필요 exp','required exp','exp','xp','경험치','요구경험치'].includes(x));
-    return { idxLevel: idxLevel >= 0 ? idxLevel : 0, idxReq: idxReq >= 0 ? idxReq : 1 };
+    // 명시 요구: 레벨은 A열, 필요 경험치는 C열(C2:C51)
+    // 가능한 한 강제 인덱스 사용(A=0, C=2). 헤더 길이가 부족할 경우 대비해 fallback.
+    const idxLevel = 0;
+    const idxReq = headers.length >= 3 ? 2 : Math.min(1, headers.length - 1);
+    return { idxLevel, idxReq };
   }
 
   function toNumber(str){
@@ -71,19 +71,6 @@
       const reqNum = toNumber(req);
       items.push({ level: lvl, reqExp: req, reqExpNum: reqNum });
     }
-    // Determine thresholds (cumulative requirement up to each level)
-    const values = items.map(it => it.reqExpNum || 0);
-    const nonDecreasing = values.every((v,i) => i === 0 || v >= values[i-1]);
-    let thresholds = [];
-    if (nonDecreasing) {
-      thresholds = values;
-    } else {
-      let acc = 0;
-      thresholds = values.map(v => { acc += v; return acc; });
-    }
-    // Force first level threshold to 0 to represent starting point
-    if (thresholds.length > 0) thresholds[0] = 0;
-    items.forEach((it, i) => { it.threshold = thresholds[i]; });
     return items;
   }
 
@@ -113,23 +100,20 @@
   function updateInfo(items, idx, currentExp){
     const i = Math.max(0, Math.min(items.length - 1, idx));
     const cur = items[i];
-    const next = items[i + 1];
-    // Progress calculation using cumulative thresholds
-    const base = cur?.threshold ?? 0;
-    const target = next?.threshold;
-    if (typeof target === 'number'){
+    // 진행도: 현재 누적 경험치 / 현재 레벨의 누적 필요 경험치(C열 값)
+    const target = cur?.reqExpNum ?? 0;
+    if (target > 0){
       const need = Math.max(0, target - (currentExp || 0));
-      const denom = Math.max(1, target - base);
-      const ratio = clamp(((currentExp || 0) - base) / denom, 0, 1);
+      const ratio = clamp((currentExp || 0) / target, 0, 1);
       if (progFill) progFill.style.width = (ratio * 100).toFixed(1) + '%';
       if (progBar) progBar.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
-      if (progText) progText.textContent = `${(currentExp||0).toLocaleString()} / 다음 ${(target).toLocaleString()} (남은 ${need.toLocaleString()})`;
-      infoEl.textContent = `다음 레벨 필요 경험치: ${(target - base).toLocaleString()}`;
+      if (progText) progText.textContent = `${(currentExp||0).toLocaleString()} / 목표 ${(target).toLocaleString()} (남은 ${need.toLocaleString()})`;
+      infoEl.textContent = `현재 레벨 누적 필요 경험치: ${target.toLocaleString()}`;
     } else {
-      if (progFill) progFill.style.width = '100%';
-      if (progBar) progBar.setAttribute('aria-valuenow', '100');
-      if (progText) progText.textContent = '최대 레벨입니다.';
-      infoEl.textContent = '최대 레벨입니다.';
+      if (progFill) progFill.style.width = '0%';
+      if (progBar) progBar.setAttribute('aria-valuenow', '0');
+      if (progText) progText.textContent = '목표 정보가 없습니다.';
+      infoEl.textContent = '목표 정보가 없습니다.';
     }
   }
 
