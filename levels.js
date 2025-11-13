@@ -13,6 +13,8 @@
   const tableBody = panel.querySelector('.levels-table tbody');
   const errEl = panel.querySelector('.levels-error');
   const expInput = panel.querySelector('.current-exp-input');
+  const expMinus = panel.querySelector('.exp-minus');
+  const expPlus = panel.querySelector('.exp-plus');
   const progBar = panel.querySelector('.progress-bar');
   const progFill = panel.querySelector('.progress-fill');
   const progText = panel.querySelector('.progress-text');
@@ -161,17 +163,30 @@
       // notify
       dispatchLevelChanged(items, finalIdx);
     });
-    expInput?.addEventListener('input', () => {
-      const curExp = Math.max(0, toNumber(expInput?.value || '0'));
-      // 현재 경험치로 레벨 자동 보정
+    function setCurrentExp(newVal){
+      const curExp = Math.max(0, Math.round(newVal));
+      if (expInput) expInput.value = String(curExp);
       const resolved = levelIndexFromExp(items, curExp);
       if (String(resolved) !== selectEl.value) selectEl.value = String(resolved);
       updateTable(items, resolved);
       updateInfo(items, resolved, curExp);
       const st = loadState();
       saveState({ ...st, currentExp: curExp, levelIndex: resolved });
-      // notify
       dispatchLevelChanged(items, resolved);
+    }
+    expInput?.addEventListener('input', () => {
+      const cur = toNumber(expInput?.value || '0');
+      setCurrentExp(cur);
+    });
+    expMinus?.addEventListener('click', () => {
+      const cur = Math.max(0, toNumber(expInput?.value || '0'));
+      const next = Math.max(0, cur - 100);
+      setCurrentExp(next);
+    });
+    expPlus?.addEventListener('click', () => {
+      const cur = Math.max(0, toNumber(expInput?.value || '0'));
+      const next = cur + 100;
+      setCurrentExp(next);
     });
   }
 

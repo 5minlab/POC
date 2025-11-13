@@ -285,6 +285,8 @@ body {
   border-radius: 6px;
   border: 1px solid rgba(0,0,0,0.3);
 }
+.exp-controls { display: inline-flex; gap: 6px; align-items: center; }
+.exp-btn { appearance: none; border: 1px solid rgba(0,0,0,0.3); background: #fff; border-radius: 6px; padding: 4px 8px; cursor: pointer; }
 .level-info {
   font-size: 14px;
   color: #111;
