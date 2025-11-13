@@ -85,12 +85,32 @@
           <div class="stats-list" role="list" aria-live="polite"></div>
           <div class="stats-error" role="status" aria-live="assertive" hidden></div>
         </div>
+        <div class="levels-panel" aria-label="Level up UI">
+          <h2 class="levels-title">레벨업</h2>
+          <div class="levels-controls">
+            <label>
+              현재 레벨
+              <select class="level-select" aria-label="현재 레벨 선택"></select>
+            </label>
+            <div class="level-info" aria-live="polite"></div>
+          </div>
+          <div class="levels-table-wrap">
+            <table class="levels-table" aria-label="레벨 테이블">
+              <thead>
+                <tr><th>레벨</th><th>필요 경험치</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="levels-error" role="status" aria-live="assertive" hidden></div>
+        </div>
       </section>
     </main>
-    <script src="boxes.js?v=20251113-2"></script>
-    <script src="inventory.js?v=20251113-2"></script>
-    <script src="sheets.js?v=20251113-2"></script>
-    <script src="controls.js?v=20251113-2"></script>
-    <script src="stats.js?v=20251113-2"></script>
+    <script src="boxes.js?v=20251113-3"></script>
+    <script src="inventory.js?v=20251113-3"></script>
+    <script src="sheets.js?v=20251113-3"></script>
+    <script src="controls.js?v=20251113-3"></script>
+    <script src="stats.js?v=20251113-3"></script>
+    <script src="levels.js?v=20251113-3"></script>
   </body>
 </html>
