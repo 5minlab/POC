@@ -108,12 +108,12 @@
       if (progFill) progFill.style.width = (ratio * 100).toFixed(1) + '%';
       if (progBar) progBar.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
       if (progText) progText.textContent = `${(currentExp||0).toLocaleString()} / 목표 ${(target).toLocaleString()} (남은 ${need.toLocaleString()})`;
-      infoEl.textContent = `현재 레벨 누적 필요 경험치: ${target.toLocaleString()}`;
+      if (infoEl) infoEl.textContent = '';
     } else {
       if (progFill) progFill.style.width = '0%';
       if (progBar) progBar.setAttribute('aria-valuenow', '0');
-      if (progText) progText.textContent = '목표 정보가 없습니다.';
-      infoEl.textContent = '목표 정보가 없습니다.';
+      if (progText) progText.textContent = '';
+      if (infoEl) infoEl.textContent = '';
     }
   }
 
