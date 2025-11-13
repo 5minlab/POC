@@ -76,6 +76,30 @@
     return items;
   }
 
+  // Determine whether column C holds the threshold for the current row's level (offset=0)
+  // or for the next level (offset=+1). Heuristic: if L1 row has 0 and L2 row has >0, use +1.
+  let TARGET_NEXT_ROW = false;
+  function detectTargetOffset(items){
+    TARGET_NEXT_ROW = false;
+    if (!items || items.length < 2) return;
+    const l0 = parseInt(String(items[0].level).replace(/[^0-9-]/g,''), 10);
+    const l1 = parseInt(String(items[1].level).replace(/[^0-9-]/g,''), 10);
+    const v0 = items[0].reqExpNum || 0;
+    const v1 = items[1].reqExpNum || 0;
+    if (!isNaN(l0) && !isNaN(l1) && l0 === 1 && l1 === 2){
+      if (v0 === 0 && v1 > 0) TARGET_NEXT_ROW = true;
+    } else {
+      if (v0 === 0 && v1 > 0) TARGET_NEXT_ROW = true;
+    }
+  }
+
+  function targetForIndex(items, idx){
+    if (!items || items.length === 0) return 0;
+    const j = TARGET_NEXT_ROW ? Math.min(items.length - 1, idx + 1) : idx;
+    const v = items[j]?.reqExpNum;
+    return typeof v === 'number' ? v : 0;
+  }
+
   function render(items){
     // Populate select (레벨 목록)
     selectEl.innerHTML = '';
@@ -91,6 +115,8 @@
     // 최초 레벨은 1 (목록 첫 행이 레벨1이라고 가정)
     const savedIdx = Math.min(items.length - 1, Math.max(0, parseInt(st.levelIndex ?? '0', 10) || 0));
     const curExp = Math.max(0, toNumber(st.currentExp ?? '0'));
+    // Detect target offset once we have items
+    detectTargetOffset(items);
     // 현재 경험치에 맞춰 레벨 자동 보정
     const idx = levelIndexFromExp(items, curExp);
     selectEl.value = String(idx);
@@ -103,9 +129,8 @@
 
   function updateInfo(items, idx, currentExp){
     const i = Math.max(0, Math.min(items.length - 1, idx));
-    const cur = items[i];
-    // 진행도: 현재 누적 경험치 / 현재 레벨의 누적 필요 경험치(C열 값)
-    const target = cur?.reqExpNum ?? 0;
+    // 진행도: 현재 누적 경험치 / 현재 레벨 목표(오프셋 감안)
+    const target = targetForIndex(items, i);
     if (target > 0){
       const need = Math.max(0, target - (currentExp || 0));
       const ratio = clamp((currentExp || 0) / target, 0, 1);
@@ -159,7 +184,9 @@
     const tdL = document.createElement('td');
     tdL.textContent = it.level;
     const tdR = document.createElement('td');
-    tdR.textContent = it.reqExp || '-';
+    // 표에는 현재 레벨 목표값을 일관되게 표시
+    const target = targetForIndex(items, i);
+    tdR.textContent = isNaN(target) ? '-' : String(target);
     tr.appendChild(tdL);
     tr.appendChild(tdR);
     tableBody.appendChild(tr);
@@ -168,7 +195,7 @@
   function levelIndexFromExp(items, exp){
     let idx = 0;
     for (let i = 0; i < items.length; i++){
-      const th = items[i]?.reqExpNum ?? 0;
+      const th = targetForIndex(items, i);
       if (exp > th) idx = i; else break;
     }
     return idx;
