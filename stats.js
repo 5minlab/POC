@@ -10,10 +10,24 @@
   if (!panel || !list) return;
 
   async function fetchCSVText(){
-    const url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&id=${sheetId}&gid=${gid}`;
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`시트 로드 실패: ${res.status}`);
-    return await res.text();
+    const urls = [
+      // 1) 일반 export (공개 또는 링크공개로 충분한 경우)
+      `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&id=${sheetId}&gid=${gid}`,
+      // 2) 웹에 게시(pub) 링크 (파일>공유>웹에 게시 한 경우)
+      `https://docs.google.com/spreadsheets/d/${sheetId}/pub?gid=${gid}&single=true&output=csv`,
+      // 3) gviz CSV 출력
+      `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&gid=${gid}`,
+    ];
+    let lastErr = null;
+    for (const url of urls){
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) { lastErr = new Error(`HTTP ${res.status}`); continue; }
+        const text = await res.text();
+        if (text && text.trim().length) return text;
+      } catch (e){ lastErr = e; }
+    }
+    throw lastErr || new Error('시트 로드 실패');
   }
 
   function parseFirstColumnRows(csvText, startRow, endRow){
