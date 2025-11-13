@@ -10,6 +10,10 @@
   const infoEl = panel.querySelector('.level-info');
   const tableBody = panel.querySelector('.levels-table tbody');
   const errEl = panel.querySelector('.levels-error');
+  const expInput = panel.querySelector('.current-exp-input');
+  const progBar = panel.querySelector('.progress-bar');
+  const progFill = panel.querySelector('.progress-fill');
+  const progText = panel.querySelector('.progress-text');
 
   const LS = 'poc_level_state_v1';
   function loadState(){ try { return JSON.parse(localStorage.getItem(LS) || '{}') || {}; } catch { return {}; } }
@@ -49,6 +53,13 @@
     return { idxLevel: idxLevel >= 0 ? idxLevel : 0, idxReq: idxReq >= 0 ? idxReq : 1 };
   }
 
+  function toNumber(str){
+    if (typeof str !== 'string') return 0;
+    const cleaned = str.replace(/[^0-9.-]/g, '');
+    const n = parseFloat(cleaned);
+    return isNaN(n) ? 0 : n;
+  }
+
   function buildModel(headers, rows){
     const { idxLevel, idxReq } = detectColumns(headers);
     const items = [];
@@ -57,8 +68,20 @@
       const lvl = (r[idxLevel] || '').trim();
       if (!lvl) continue; // require level label in col A (or detected)
       const req = (r[idxReq] || '').trim();
-      items.push({ level: lvl, reqExp: req });
+      const reqNum = toNumber(req);
+      items.push({ level: lvl, reqExp: req, reqExpNum: reqNum });
     }
+    // Determine thresholds (cumulative requirement up to each level)
+    const values = items.map(it => it.reqExpNum || 0);
+    const nonDecreasing = values.every((v,i) => i === 0 || v >= values[i-1]);
+    let thresholds = [];
+    if (nonDecreasing) {
+      thresholds = values;
+    } else {
+      let acc = 0;
+      thresholds = values.map(v => { acc += v; return acc; });
+    }
+    items.forEach((it, i) => { it.threshold = thresholds[i]; });
     return items;
   }
 
@@ -89,20 +112,34 @@
 
     // Restore selection
     const st = loadState();
-    const idx = Math.min(items.length - 1, Math.max(0, parseInt(st.levelIndex || '0', 10) || 0));
+    const idx = Math.min(items.length - 1, Math.max(0, parseInt(st.levelIndex ?? '0', 10) || 0));
     selectEl.value = String(idx);
-    updateInfo(items, idx);
+    const curExp = Math.max(0, toNumber(st.currentExp ?? '0'));
+    if (expInput) expInput.value = String(curExp);
+    updateInfo(items, idx, curExp);
   }
 
-  function updateInfo(items, idx){
+  function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+
+  function updateInfo(items, idx, currentExp){
     const i = Math.max(0, Math.min(items.length - 1, idx));
     const cur = items[i];
     const next = items[i + 1];
-    if (next && next.reqExp){
-      infoEl.textContent = `다음 레벨 필요 경험치: ${next.reqExp}`;
-    } else if (next){
-      infoEl.textContent = '다음 레벨 필요 경험치 정보가 없습니다.';
+    // Progress calculation using cumulative thresholds
+    const base = cur?.threshold ?? 0;
+    const target = next?.threshold;
+    if (typeof target === 'number'){
+      const need = Math.max(0, target - (currentExp || 0));
+      const denom = Math.max(1, target - base);
+      const ratio = clamp(((currentExp || 0) - base) / denom, 0, 1);
+      if (progFill) progFill.style.width = (ratio * 100).toFixed(1) + '%';
+      if (progBar) progBar.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
+      if (progText) progText.textContent = `${(currentExp||0).toLocaleString()} / 다음 ${(target).toLocaleString()} (남은 ${need.toLocaleString()})`;
+      infoEl.textContent = `다음 레벨 필요 경험치: ${(target - base).toLocaleString()}`;
     } else {
+      if (progFill) progFill.style.width = '100%';
+      if (progBar) progBar.setAttribute('aria-valuenow', '100');
+      if (progText) progText.textContent = '최대 레벨입니다.';
       infoEl.textContent = '최대 레벨입니다.';
     }
   }
@@ -110,8 +147,17 @@
   function bind(items){
     selectEl.addEventListener('change', () => {
       const idx = parseInt(selectEl.value, 10) || 0;
-      updateInfo(items, idx);
-      saveState({ levelIndex: idx });
+      const curExp = Math.max(0, toNumber(expInput?.value || '0'));
+      updateInfo(items, idx, curExp);
+      const st = loadState();
+      saveState({ ...st, levelIndex: idx });
+    });
+    expInput?.addEventListener('input', () => {
+      const idx = parseInt(selectEl.value, 10) || 0;
+      const curExp = Math.max(0, toNumber(expInput?.value || '0'));
+      updateInfo(items, idx, curExp);
+      const st = loadState();
+      saveState({ ...st, currentExp: curExp });
     });
   }
 
