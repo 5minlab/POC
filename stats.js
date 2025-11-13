@@ -135,8 +135,16 @@
     refreshValues();
   }
 
-  function onLevelChanged(){
-    clampAllocationToCap();
+  function onLevelChanged(ev){
+    const prev = ev?.detail?.prevIndex;
+    const cur = ev?.detail?.levelIndex;
+    // 레벨이 실제로 변경된 경우에만 배분 리셋
+    if (prev !== undefined && prev !== null && prev !== cur){
+      alloc = { '힘': 0, '재주': 0, '지능': 0 };
+    } else {
+      // 초기 로드 등에서는 캡만 보정
+      clampAllocationToCap();
+    }
     saveAlloc();
     refreshValues();
   }

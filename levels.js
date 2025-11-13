@@ -1,5 +1,7 @@
 (function(){
   'use strict';
+  // Track last dispatched level index to include in events
+  let lastIdx = null;
   // Level-up UI rendering from Google Sheets (gid=1223287132)
   const sheetId = '1ElMWIti0qQiDmkDngQ6WffCzkGrL_72FH7rQLji6IOA';
   const gid = '1223287132';
@@ -181,7 +183,7 @@
       if (!items.length) throw new Error('empty');
       render(items);
       bind(items);
-      // initial notify
+      // initial notify (no prev index)
       const idx = parseInt(selectEl.value, 10) || 0;
       dispatchLevelChanged(items, idx);
     } catch (e){
@@ -195,7 +197,9 @@
   function dispatchLevelChanged(items, idx){
     const levelLabel = items?.[idx]?.level ?? String(idx+1);
     try {
-      window.dispatchEvent(new CustomEvent('level:changed', { detail: { levelIndex: idx, level: levelLabel } }));
+      const prevIndex = lastIdx;
+      lastIdx = idx;
+      window.dispatchEvent(new CustomEvent('level:changed', { detail: { levelIndex: idx, prevIndex, level: levelLabel } }));
     } catch {}
   }
 
