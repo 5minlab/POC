@@ -86,7 +86,7 @@
   }
 
   function render(items){
-    // Populate select
+    // Populate select (레벨 목록)
     selectEl.innerHTML = '';
     items.forEach((it, i) => {
       const opt = document.createElement('option');
@@ -95,27 +95,14 @@
       selectEl.appendChild(opt);
     });
 
-    // Table
-    tableBody.innerHTML = '';
-    const frag = document.createDocumentFragment();
-    items.forEach((it) => {
-      const tr = document.createElement('tr');
-      const tdL = document.createElement('td');
-      tdL.textContent = it.level;
-      const tdR = document.createElement('td');
-      tdR.textContent = it.reqExp || '-';
-      tr.appendChild(tdL);
-      tr.appendChild(tdR);
-      frag.appendChild(tr);
-    });
-    tableBody.appendChild(frag);
-
     // Restore selection
     const st = loadState();
+    // 최초 레벨은 1 (목록 첫 행이 레벨1이라고 가정)
     const idx = Math.min(items.length - 1, Math.max(0, parseInt(st.levelIndex ?? '0', 10) || 0));
     selectEl.value = String(idx);
     const curExp = Math.max(0, toNumber(st.currentExp ?? '0'));
     if (expInput) expInput.value = String(curExp);
+    updateTable(items, idx);
     updateInfo(items, idx, curExp);
   }
 
@@ -148,6 +135,7 @@
     selectEl.addEventListener('change', () => {
       const idx = parseInt(selectEl.value, 10) || 0;
       const curExp = Math.max(0, toNumber(expInput?.value || '0'));
+      updateTable(items, idx);
       updateInfo(items, idx, curExp);
       const st = loadState();
       saveState({ ...st, levelIndex: idx });
@@ -159,6 +147,21 @@
       const st = loadState();
       saveState({ ...st, currentExp: curExp });
     });
+  }
+
+  function updateTable(items, idx){
+    // 현재 레벨에 해당하는 행만 표시
+    tableBody.innerHTML = '';
+    const i = Math.max(0, Math.min(items.length - 1, idx));
+    const it = items[i];
+    const tr = document.createElement('tr');
+    const tdL = document.createElement('td');
+    tdL.textContent = it.level;
+    const tdR = document.createElement('td');
+    tdR.textContent = it.reqExp || '-';
+    tr.appendChild(tdL);
+    tr.appendChild(tdR);
+    tableBody.appendChild(tr);
   }
 
   async function load(){
