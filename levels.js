@@ -81,6 +81,8 @@
       let acc = 0;
       thresholds = values.map(v => { acc += v; return acc; });
     }
+    // Force first level threshold to 0 to represent starting point
+    if (thresholds.length > 0) thresholds[0] = 0;
     items.forEach((it, i) => { it.threshold = thresholds[i]; });
     return items;
   }
