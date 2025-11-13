@@ -169,7 +169,7 @@
     let idx = 0;
     for (let i = 0; i < items.length; i++){
       const th = items[i]?.reqExpNum ?? 0;
-      if (exp >= th) idx = i; else break;
+      if (exp > th) idx = i; else break;
     }
     return idx;
   }
