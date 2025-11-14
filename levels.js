@@ -41,7 +41,7 @@
   }
 
   function parseSteps(csv){
-    // Parse C column values starting at C3 (skip C2) and detect whether they are cumulative thresholds.
+    // Parse C column values starting at C3 (skip C2). Use raw values directly as per-level requirements.
     const lines = csv.replace(/\r\n?/g,'\n').split('\n');
     if (!lines.length) return [];
     const rows = lines.slice(1).map(l => l.split(',').map(s => s.trim())); // exclude header
@@ -54,21 +54,6 @@
     }
     // Remove leading non-positive values before first positive requirement.
     while (rawVals.length && rawVals[0] <= 0) rawVals.shift();
-    if (!rawVals.length) return [];
-    // Detect cumulative: strictly increasing and differences >0 but first value is the first threshold.
-    let isCumulative = true;
-    for (let i = 1; i < rawVals.length; i++){
-      if (!(rawVals[i] > rawVals[i-1])) { isCumulative = false; break; }
-    }
-    if (isCumulative){
-      // Convert cumulative thresholds to per-level step requirements (deltas).
-      const steps = [];
-      for (let i = 0; i < rawVals.length; i++){
-        if (i === 0) steps.push(rawVals[0]); else steps.push(rawVals[i] - rawVals[i-1]);
-      }
-      return steps;
-    }
-    // Already per-level; return as-is.
     return rawVals;
   }
 
