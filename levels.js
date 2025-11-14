@@ -9,8 +9,7 @@
   const tableBody = panel.querySelector('.levels-table tbody');
   const errEl = panel.querySelector('.levels-error');
   const expInput = panel.querySelector('.current-exp-input');
-  const expMinus = panel.querySelector('.exp-minus');
-  const expPlus = panel.querySelector('.exp-plus');
+  // Removed exp-minus / exp-plus buttons
   const progBar = panel.querySelector('.progress-bar');
   const progFill = panel.querySelector('.progress-fill');
   const progText = panel.querySelector('.progress-text');
@@ -153,7 +152,7 @@
   }
 
   function bindExpControls(){
-    // Manual level select should set totalExp to the cumulative requirement for that level
+    // Manual level select sets cumulative experience
     selectEl?.addEventListener('change', () => {
       const sel = parseInt(selectEl.value, 10) || 0;
       const minExp = cumulativeExpForLevel(sel);
@@ -161,14 +160,6 @@
     });
     expInput?.addEventListener('input', () => {
       setTotalExp(parseFloat(expInput.value) || 0);
-    });
-    expMinus?.addEventListener('click', () => {
-      const cur = parseFloat(expInput.value) || 0;
-      setTotalExp(Math.max(0, cur - 10));
-    });
-    expPlus?.addEventListener('click', () => {
-      const cur = parseFloat(expInput.value) || 0;
-      setTotalExp(cur + 10);
     });
   }
 
