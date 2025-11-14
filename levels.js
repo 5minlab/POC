@@ -13,6 +13,7 @@
   const progBar = panel.querySelector('.progress-bar');
   const progFill = panel.querySelector('.progress-fill');
   const progText = panel.querySelector('.progress-text');
+  const progPercent = panel.querySelector('.progress-percent');
 
   const LS = 'poc_level_state_v1';
   function loadState(){ try { return JSON.parse(localStorage.getItem(LS) || '{}') || {}; } catch { return {}; } }
@@ -112,13 +113,17 @@
     // Progress bar
     if (reqForNext > 0){
       const ratio = Math.max(0, Math.min(1, expInto / reqForNext));
-      if (progFill) progFill.style.width = (ratio * 100).toFixed(1) + '%';
-      if (progBar) progBar.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
-      if (progText) progText.textContent = `${expInto.toLocaleString()} / ${reqForNext.toLocaleString()} (${(ratio*100).toFixed(1)}%)`;
+      const pct = (ratio * 100);
+      if (progFill) progFill.style.width = pct.toFixed(1) + '%';
+      if (progBar) progBar.setAttribute('aria-valuenow', String(Math.round(pct)));
+      if (progPercent) progPercent.textContent = pct.toFixed(1) + '%';
+      const remaining = Math.max(0, reqForNext - expInto);
+      if (progText) progText.textContent = `현재 레벨 경험치 ${expInto.toLocaleString()} / 필요 ${reqForNext.toLocaleString()} (남은 ${remaining.toLocaleString()})`;
     } else {
       // Max level reached
       if (progFill) progFill.style.width = '100%';
       if (progBar) progBar.setAttribute('aria-valuenow','100');
+      if (progPercent) progPercent.textContent = 'MAX';
       if (progText) progText.textContent = `최대 레벨 (총 경험치 ${totalExp.toLocaleString()})`;
     }
     // Table: show current level & next requirement
