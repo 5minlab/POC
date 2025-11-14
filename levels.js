@@ -41,20 +41,35 @@
   }
 
   function parseSteps(csv){
-    // CSV lines
+    // Parse C column values starting at C3 (skip C2) and detect whether they are cumulative thresholds.
     const lines = csv.replace(/\r\n?/g,'\n').split('\n');
     if (!lines.length) return [];
     const rows = lines.slice(1).map(l => l.split(',').map(s => s.trim())); // exclude header
-    // C2 is rows[0][2], C3 is rows[1][2]; we start at C3 per spec so skip rows[0]
-    const steps = [];
-    for (let i = 1; i < rows.length; i++){ // start at row index 1 => sheet row 3
+    const rawVals = [];
+    for (let i = 1; i < rows.length; i++){ // i=1 => sheet row 3 (C3)
       const cols = rows[i];
       if (!cols || cols.length < 3) continue;
-      const raw = cols[2];
-      const num = toNumber(raw);
-      if (num > 0) steps.push(num); else steps.push(0); // keep length alignment
+      const num = toNumber(cols[2]);
+      rawVals.push(num);
     }
-    return steps;
+    // Remove leading non-positive values before first positive requirement.
+    while (rawVals.length && rawVals[0] <= 0) rawVals.shift();
+    if (!rawVals.length) return [];
+    // Detect cumulative: strictly increasing and differences >0 but first value is the first threshold.
+    let isCumulative = true;
+    for (let i = 1; i < rawVals.length; i++){
+      if (!(rawVals[i] > rawVals[i-1])) { isCumulative = false; break; }
+    }
+    if (isCumulative){
+      // Convert cumulative thresholds to per-level step requirements (deltas).
+      const steps = [];
+      for (let i = 0; i < rawVals.length; i++){
+        if (i === 0) steps.push(rawVals[0]); else steps.push(rawVals[i] - rawVals[i-1]);
+      }
+      return steps;
+    }
+    // Already per-level; return as-is.
+    return rawVals;
   }
 
   function toNumber(str){
@@ -69,9 +84,9 @@
     let expInto = totalExp;
     for (let i = 0; i < stepReqs.length; i++){
       const need = stepReqs[i];
-      if (need <= 0) break; // malformed or cap
+      if (need <= 0) continue; // skip malformed zeros
       if (expInto >= need){
-        expInto -= need;
+        expInto -= need; // carry remainder into next level
         level++;
       } else {
         break;
