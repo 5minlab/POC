@@ -1,15 +1,11 @@
 (function(){
   'use strict';
-  // Track last dispatched level index to include in events
-  let lastIdx = null;
-  // Level-up UI rendering from Google Sheets (gid=1223287132)
+  // RESET & REBUILD: Level system now uses per-level step requirements from C3 (L1->L2), then C4..C51.
   const sheetId = '1ElMWIti0qQiDmkDngQ6WffCzkGrL_72FH7rQLji6IOA';
   const gid = '1223287132';
-
   const panel = document.querySelector('.panel.right .levels-panel');
   if (!panel) return;
-  const selectEl = panel.querySelector('.level-select');
-  const infoEl = panel.querySelector('.level-info');
+  const selectEl = panel.querySelector('.level-select'); // Will be auto-driven (disabled)
   const tableBody = panel.querySelector('.levels-table tbody');
   const errEl = panel.querySelector('.levels-error');
   const expInput = panel.querySelector('.current-exp-input');
@@ -23,6 +19,9 @@
   function loadState(){ try { return JSON.parse(localStorage.getItem(LS) || '{}') || {}; } catch { return {}; } }
   function saveState(st){ try { localStorage.setItem(LS, JSON.stringify(st || {})); } catch {} }
 
+  let stepReqs = []; // index: level-1 (level1->2 requirement at stepReqs[0])
+  let lastLevelIdx = null; // for prevIndex dispatch
+
   async function fetchCSVText(){
     const urls = [
       `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&id=${sheetId}&gid=${gid}`,
@@ -33,217 +32,144 @@
     for (const url of urls){
       try {
         const res = await fetch(url, { cache: 'no-store' });
-        if (!res.ok) { lastErr = new Error(`HTTP ${res.status}`); continue; }
+        if (!res.ok){ lastErr = new Error(`HTTP ${res.status}`); continue; }
         const text = await res.text();
-        if (text && text.trim().length) return text;
-      } catch (e){ lastErr = e; }
+        if (text && text.trim()) return text;
+      } catch(e){ lastErr = e; }
     }
     throw lastErr || new Error('시트 로드 실패');
   }
 
-  function parseCSV(text){
-    const lines = text.replace(/\r\n?/g, '\n').split('\n');
-    if (lines.length === 0) return { headers: [], rows: [] };
-    const header = (lines[0] || '').split(',').map(s => s.trim());
-    const rows = lines.slice(1).map(line => line.split(',').map(s => s.trim()));
-    return { headers: header, rows };
-  }
-
-  function detectColumns(headers){
-    // 명시 요구: 레벨은 A열, 필요 경험치는 C열(C2:C51)
-    // 가능한 한 강제 인덱스 사용(A=0, C=2). 헤더 길이가 부족할 경우 대비해 fallback.
-    const idxLevel = 0;
-    const idxReq = headers.length >= 3 ? 2 : Math.min(1, headers.length - 1);
-    return { idxLevel, idxReq };
+  function parseSteps(csv){
+    // CSV lines
+    const lines = csv.replace(/\r\n?/g,'\n').split('\n');
+    if (!lines.length) return [];
+    const rows = lines.slice(1).map(l => l.split(',').map(s => s.trim())); // exclude header
+    // C2 is rows[0][2], C3 is rows[1][2]; we start at C3 per spec so skip rows[0]
+    const steps = [];
+    for (let i = 1; i < rows.length; i++){ // start at row index 1 => sheet row 3
+      const cols = rows[i];
+      if (!cols || cols.length < 3) continue;
+      const raw = cols[2];
+      const num = toNumber(raw);
+      if (num > 0) steps.push(num); else steps.push(0); // keep length alignment
+    }
+    return steps;
   }
 
   function toNumber(str){
     if (typeof str !== 'string') return 0;
-    const cleaned = str.replace(/[^0-9.-]/g, '');
+    const cleaned = str.replace(/[^0-9.-]/g,'');
     const n = parseFloat(cleaned);
     return isNaN(n) ? 0 : n;
   }
 
-  function buildModel(headers, rows){
-    const { idxLevel, idxReq } = detectColumns(headers);
-    const items = [];
-    for (const r of rows){
-      if (!r || r.length === 0) continue;
-      const lvl = (r[idxLevel] || '').trim();
-      if (!lvl) continue; // require level label in col A (or detected)
-      const req = (r[idxReq] || '').trim();
-      const reqNum = toNumber(req);
-      items.push({ level: lvl, reqExp: req, reqExpNum: reqNum });
+  function deriveLevel(totalExp){
+    let level = 1;
+    let expInto = totalExp;
+    for (let i = 0; i < stepReqs.length; i++){
+      const need = stepReqs[i];
+      if (need <= 0) break; // malformed or cap
+      if (expInto >= need){
+        expInto -= need;
+        level++;
+      } else {
+        break;
+      }
     }
-    return items;
+    const reqForNext = stepReqs[level-1] || 0;
+    return { level, levelIndex: level - 1, expInto, reqForNext };
   }
 
-  // Determine whether column C holds the threshold for the current row's level (offset=0)
-  // or for the next level (offset=+1). Heuristic: if L1 row has 0 and L2 row has >0, use +1.
-  let TARGET_NEXT_ROW = false;
-  function detectTargetOffset(items){
-    TARGET_NEXT_ROW = false;
-    if (!items || items.length < 2) return;
-    const l0 = parseInt(String(items[0].level).replace(/[^0-9-]/g,''), 10);
-    const l1 = parseInt(String(items[1].level).replace(/[^0-9-]/g,''), 10);
-    const v0 = items[0].reqExpNum || 0;
-    const v1 = items[1].reqExpNum || 0;
-    if (!isNaN(l0) && !isNaN(l1) && l0 === 1 && l1 === 2){
-      if (v0 === 0 && v1 > 0) TARGET_NEXT_ROW = true;
-    } else {
-      if (v0 === 0 && v1 > 0) TARGET_NEXT_ROW = true;
+  function updateUI(totalExp){
+    const { level, levelIndex, expInto, reqForNext } = deriveLevel(totalExp);
+    // Select element reflect current level (disabled to avoid manual override)
+    if (selectEl){
+      if (!selectEl.options.length){
+        // Populate options up to max known levels
+        const maxLevel = stepReqs.length + 1;
+        for (let l = 1; l <= maxLevel; l++){
+          const opt = document.createElement('option');
+          opt.value = String(l-1);
+          opt.textContent = String(l);
+          selectEl.appendChild(opt);
+        }
+        selectEl.setAttribute('disabled','disabled');
+      }
+      selectEl.value = String(levelIndex);
     }
-  }
-
-  function targetForIndex(items, idx){
-    if (!items || items.length === 0) return 0;
-    const j = TARGET_NEXT_ROW ? Math.min(items.length - 1, idx + 1) : idx;
-    const v = items[j]?.reqExpNum;
-    return typeof v === 'number' ? v : 0;
-  }
-
-  function render(items){
-    // Populate select (레벨 목록)
-    selectEl.innerHTML = '';
-    items.forEach((it, i) => {
-      const opt = document.createElement('option');
-      opt.value = String(i);
-      opt.textContent = it.level;
-      selectEl.appendChild(opt);
-    });
-
-    // Restore selection
-    const st = loadState();
-    // 최초 레벨은 1 (목록 첫 행이 레벨1이라고 가정)
-    const savedIdx = Math.min(items.length - 1, Math.max(0, parseInt(st.levelIndex ?? '0', 10) || 0));
-    const curExp = Math.max(0, toNumber(st.currentExp ?? '0'));
-    // Detect target offset once we have items
-    detectTargetOffset(items);
-    // 현재 경험치에 맞춰 레벨 자동 보정
-    const idx = levelIndexFromExp(items, curExp);
-    selectEl.value = String(idx);
-    if (expInput) expInput.value = String(curExp);
-    updateTable(items, idx);
-    updateInfo(items, idx, curExp);
-  }
-
-  function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
-
-  function updateInfo(items, idx, currentExp){
-    const i = Math.max(0, Math.min(items.length - 1, idx));
-    // 진행도: 현재 누적 경험치 / 현재 레벨 목표(오프셋 감안)
-    const target = targetForIndex(items, i);
-    if (target > 0){
-      const need = Math.max(0, target - (currentExp || 0));
-      const ratio = clamp((currentExp || 0) / target, 0, 1);
+    // Progress bar
+    if (reqForNext > 0){
+      const ratio = Math.max(0, Math.min(1, expInto / reqForNext));
       if (progFill) progFill.style.width = (ratio * 100).toFixed(1) + '%';
       if (progBar) progBar.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
-      if (progText) progText.textContent = `${(currentExp||0).toLocaleString()} / 목표 ${(target).toLocaleString()} (남은 ${need.toLocaleString()})`;
-      if (infoEl) infoEl.textContent = '';
+      if (progText) progText.textContent = `${expInto.toLocaleString()} / ${reqForNext.toLocaleString()} (${(ratio*100).toFixed(1)}%)`;
     } else {
-      if (progFill) progFill.style.width = '0%';
-      if (progBar) progBar.setAttribute('aria-valuenow', '0');
-      if (progText) progText.textContent = '';
-      if (infoEl) infoEl.textContent = '';
+      // Max level reached
+      if (progFill) progFill.style.width = '100%';
+      if (progBar) progBar.setAttribute('aria-valuenow','100');
+      if (progText) progText.textContent = `최대 레벨 (총 경험치 ${totalExp.toLocaleString()})`;
+    }
+    // Table: show current level & next requirement
+    if (tableBody){
+      tableBody.innerHTML = '';
+      const tr = document.createElement('tr');
+      const tdL = document.createElement('td'); tdL.textContent = String(level);
+      const tdR = document.createElement('td'); tdR.textContent = reqForNext > 0 ? String(reqForNext) : '-';
+      tr.appendChild(tdL); tr.appendChild(tdR); tableBody.appendChild(tr);
+    }
+    // Persist & dispatch level change if changed
+    const st = loadState();
+    if (st.totalExp !== totalExp || st.levelIndex !== levelIndex){
+      saveState({ totalExp, levelIndex });
+      dispatchLevelChanged(levelIndex);
     }
   }
 
-  function bind(items){
-    selectEl.addEventListener('change', () => {
-      const idx = parseInt(selectEl.value, 10) || 0;
-      const curExp = Math.max(0, toNumber(expInput?.value || '0'));
-      // 만약 현재 경험치가 선택 레벨 목표를 초과하면 해당 경험치에 맞는 레벨로 보정
-      const resolved = levelIndexFromExp(items, curExp);
-      const finalIdx = resolved;
-      if (String(finalIdx) !== selectEl.value) selectEl.value = String(finalIdx);
-      updateTable(items, finalIdx);
-      updateInfo(items, finalIdx, curExp);
-      const st = loadState();
-      saveState({ ...st, levelIndex: finalIdx });
-      // notify
-      dispatchLevelChanged(items, finalIdx);
-    });
-    function setCurrentExp(newVal){
-      const curExp = Math.max(0, Math.round(newVal));
-      if (expInput) expInput.value = String(curExp);
-      const resolved = levelIndexFromExp(items, curExp);
-      if (String(resolved) !== selectEl.value) selectEl.value = String(resolved);
-      updateTable(items, resolved);
-      updateInfo(items, resolved, curExp);
-      const st = loadState();
-      saveState({ ...st, currentExp: curExp, levelIndex: resolved });
-      dispatchLevelChanged(items, resolved);
-    }
+  function dispatchLevelChanged(levelIndex){
+    try {
+      const prevIndex = lastLevelIdx;
+      lastLevelIdx = levelIndex;
+      window.dispatchEvent(new CustomEvent('level:changed', { detail: { levelIndex, prevIndex, level: String(levelIndex+1) } }));
+    } catch {}
+  }
+
+  function setTotalExp(newVal){
+    const totalExp = Math.max(0, Math.round(newVal));
+    if (expInput) expInput.value = String(totalExp);
+    updateUI(totalExp);
+  }
+
+  function bindExpControls(){
     expInput?.addEventListener('input', () => {
-      const cur = toNumber(expInput?.value || '0');
-      setCurrentExp(cur);
+      setTotalExp(parseFloat(expInput.value) || 0);
     });
     expMinus?.addEventListener('click', () => {
-      const cur = Math.max(0, toNumber(expInput?.value || '0'));
-      const next = Math.max(0, cur - 10);
-      setCurrentExp(next);
+      const cur = parseFloat(expInput.value) || 0;
+      setTotalExp(Math.max(0, cur - 10));
     });
     expPlus?.addEventListener('click', () => {
-      const cur = Math.max(0, toNumber(expInput?.value || '0'));
-      const next = cur + 10;
-      setCurrentExp(next);
+      const cur = parseFloat(expInput.value) || 0;
+      setTotalExp(cur + 10);
     });
   }
 
-  function updateTable(items, idx){
-    // 현재 레벨에 해당하는 행만 표시
-    tableBody.innerHTML = '';
-    const i = Math.max(0, Math.min(items.length - 1, idx));
-    const it = items[i];
-    const tr = document.createElement('tr');
-    const tdL = document.createElement('td');
-    tdL.textContent = it.level;
-    const tdR = document.createElement('td');
-    // 표에는 현재 레벨 목표값을 일관되게 표시
-    const target = targetForIndex(items, i);
-    tdR.textContent = isNaN(target) ? '-' : String(target);
-    tr.appendChild(tdL);
-    tr.appendChild(tdR);
-    tableBody.appendChild(tr);
-  }
-
-  function levelIndexFromExp(items, exp){
-    let idx = 0;
-    for (let i = 0; i < items.length; i++){
-      const th = targetForIndex(items, i);
-      if (exp > th) idx = i; else break;
-    }
-    return idx;
-  }
-
-  async function load(){
+  async function init(){
     try {
-      if (errEl) { errEl.hidden = true; errEl.textContent = ''; }
+      if (errEl){ errEl.hidden = true; errEl.textContent = ''; }
       const csv = await fetchCSVText();
-      const { headers, rows } = parseCSV(csv);
-      const items = buildModel(headers, rows);
-      if (!items.length) throw new Error('empty');
-      render(items);
-      bind(items);
-      // initial notify (no prev index)
-      const idx = parseInt(selectEl.value, 10) || 0;
-      dispatchLevelChanged(items, idx);
-    } catch (e){
+      stepReqs = parseSteps(csv);
+      const st = loadState();
+      const startExp = Math.max(0, parseInt(st.totalExp || '0', 10) || 0);
+      bindExpControls();
+      setTotalExp(startExp);
+    } catch(e){
       if (errEl){
         errEl.hidden = false;
-        errEl.textContent = '레벨 데이터를 불러오지 못했습니다. 시트를 공개/게시했는지와 컬럼을 확인해주세요.';
+        errEl.textContent = '레벨 데이터를 불러오지 못했습니다. 시트를 공개/게시 및 C열 값을 확인하세요.';
       }
     }
   }
 
-  function dispatchLevelChanged(items, idx){
-    const levelLabel = items?.[idx]?.level ?? String(idx+1);
-    try {
-      const prevIndex = lastIdx;
-      lastIdx = idx;
-      window.dispatchEvent(new CustomEvent('level:changed', { detail: { levelIndex: idx, prevIndex, level: levelLabel } }));
-    } catch {}
-  }
-
-  load();
+  init();
 })();
