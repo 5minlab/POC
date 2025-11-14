@@ -1,11 +1,11 @@
 (function(){
   'use strict';
-  // Level system: C3, C4, ... = cumulative thresholds for reaching level 2, 3, ...
+  // RESET & REBUILD: Level system now uses per-level step requirements from C3 (L1->L2), then C4..C51.
   const sheetId = '1ElMWIti0qQiDmkDngQ6WffCzkGrL_72FH7rQLji6IOA';
   const gid = '1223287132';
   const panel = document.querySelector('.panel.right .levels-panel');
   if (!panel) return;
-  const selectEl = panel.querySelector('.level-select'); // Manual selection enabled
+  const selectEl = panel.querySelector('.level-select'); // Will be auto-driven (disabled)
   const tableBody = panel.querySelector('.levels-table tbody');
   const errEl = panel.querySelector('.levels-error');
   const expInput = panel.querySelector('.current-exp-input');
@@ -19,7 +19,7 @@
   function loadState(){ try { return JSON.parse(localStorage.getItem(LS) || '{}') || {}; } catch { return {}; } }
   function saveState(st){ try { localStorage.setItem(LS, JSON.stringify(st || {})); } catch {} }
 
-  let cumulativeThresholds = []; // C3=level2 threshold, C4=level3, etc.
+  let stepReqs = []; // index: level-1 (level1->2 requirement at stepReqs[0])
   let lastLevelIdx = null; // for prevIndex dispatch
 
   async function fetchCSVText(){
@@ -40,19 +40,21 @@
     throw lastErr || new Error('시트 로드 실패');
   }
 
-  function parseThresholds(csv){
-    // Parse C column values starting at C3 (skip C2). Use as cumulative thresholds.
+  function parseSteps(csv){
+    // Parse C column values starting at C3 (skip C2). Use raw values directly as per-level requirements.
     const lines = csv.replace(/\r\n?/g,'\n').split('\n');
     if (!lines.length) return [];
     const rows = lines.slice(1).map(l => l.split(',').map(s => s.trim())); // exclude header
-    const thresholds = [];
+    const rawVals = [];
     for (let i = 1; i < rows.length; i++){ // i=1 => sheet row 3 (C3)
       const cols = rows[i];
       if (!cols || cols.length < 3) continue;
       const num = toNumber(cols[2]);
-      if (num > 0) thresholds.push(num);
+      rawVals.push(num);
     }
-    return thresholds;
+    // Remove leading non-positive values before first positive requirement.
+    while (rawVals.length && rawVals[0] <= 0) rawVals.shift();
+    return rawVals;
   }
 
   function toNumber(str){
@@ -63,46 +65,50 @@
   }
 
   function deriveLevel(totalExp){
-    // Determine level from cumulative thresholds
     let level = 1;
-    for (let i = 0; i < cumulativeThresholds.length; i++){
-      if (totalExp >= cumulativeThresholds[i]){
-        level = i + 2; // C3 = level 2, C4 = level 3, etc.
+    let expInto = totalExp;
+    for (let i = 0; i < stepReqs.length; i++){
+      const need = stepReqs[i];
+      if (need <= 0) continue; // skip malformed zeros
+      if (expInto >= need){
+        expInto -= need; // carry remainder into next level
+        level++;
       } else {
         break;
       }
     }
-    const levelIndex = level - 1;
-    // Calculate progress within current level
-    const prevThreshold = level === 1 ? 0 : cumulativeThresholds[level - 2];
-    const nextThreshold = cumulativeThresholds[level - 1] || 0;
-    const expInto = totalExp - prevThreshold;
-    const reqForNext = nextThreshold > 0 ? nextThreshold - prevThreshold : 0;
-    return { level, levelIndex, expInto, reqForNext, totalExp };
+    const reqForNext = stepReqs[level-1] || 0;
+    return { level, levelIndex: level - 1, expInto, reqForNext };
   }
 
   function cumulativeExpForLevel(levelIndex){
-    // Return minimum cumulative exp needed to reach levelIndex (0-based)
-    if (levelIndex === 0) return 0; // level 1
-    return cumulativeThresholds[levelIndex - 1] || 0;
+    // sum of stepReqs for levels before levelIndex (levelIndex is 0-based; 0 => level1)
+    if (levelIndex <= 0) return 0;
+    let sum = 0;
+    for (let i = 0; i < levelIndex; i++){
+      const v = stepReqs[i] || 0;
+      sum += Math.max(0, v);
+    }
+    return sum;
   }
 
   function updateUI(totalExp){
     const { level, levelIndex, expInto, reqForNext } = deriveLevel(totalExp);
-    // Select element: populate and enable for manual selection
+    // Select element reflect current level (disabled to avoid manual override)
     if (selectEl){
       if (!selectEl.options.length){
         // Populate options up to max known levels
-        const maxLevel = cumulativeThresholds.length + 1;
+        const maxLevel = stepReqs.length + 1;
         for (let l = 1; l <= maxLevel; l++){
           const opt = document.createElement('option');
           opt.value = String(l-1);
           opt.textContent = String(l);
           selectEl.appendChild(opt);
         }
+          // allow manual selection
+          selectEl.removeAttribute('disabled');
       }
       selectEl.value = String(levelIndex);
-      selectEl.removeAttribute('disabled'); // Enable manual selection
     }
     // Progress bar
     if (reqForNext > 0){
@@ -147,10 +153,10 @@
   }
 
   function bindExpControls(){
-    // Manual level selection
+    // Manual level select should set totalExp to the cumulative requirement for that level
     selectEl?.addEventListener('change', () => {
-      const selectedIdx = parseInt(selectEl.value, 10) || 0;
-      const minExp = cumulativeExpForLevel(selectedIdx);
+      const sel = parseInt(selectEl.value, 10) || 0;
+      const minExp = cumulativeExpForLevel(sel);
       setTotalExp(minExp);
     });
     expInput?.addEventListener('input', () => {
@@ -170,7 +176,7 @@
     try {
       if (errEl){ errEl.hidden = true; errEl.textContent = ''; }
       const csv = await fetchCSVText();
-      cumulativeThresholds = parseThresholds(csv);
+      stepReqs = parseSteps(csv);
       const st = loadState();
       const startExp = Math.max(0, parseInt(st.totalExp || '0', 10) || 0);
       bindExpControls();
