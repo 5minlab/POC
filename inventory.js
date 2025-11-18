@@ -2,13 +2,24 @@
   'use strict';
   const inv = document.querySelector('.inventory');
   const panel = document.querySelector('.panel.left');
-  const COLS = 10; // width (n)
-  const ROWS = 12; // height (m)
+  const COLS = 12; // width (n)
+  const ROWS = 10; // height (m)
   if (!inv || !panel) return;
+
+  const dropPreview = document.createElement('div');
+  dropPreview.className = 'drop-preview';
+  (document.body || document.documentElement).appendChild(dropPreview);
+  const dropAreaPreview = document.createElement('div');
+  dropAreaPreview.className = 'drop-area-preview';
+  (document.body || document.documentElement).appendChild(dropAreaPreview);
+  let currentHoverBox = null;
+
+  const pendingEquipmentEvents = [];
+  let equipmentEventsEnabled = false;
 
   // Populate 12x12 slots once
   const total = COLS * ROWS;
-  if (!inv.hasChildNodes()) {
+  if (!inv.querySelector('.slot')) {
     const frag = document.createDocumentFragment();
     for (let i = 0; i < total; i++) {
       const cell = document.createElement('div');
@@ -18,7 +29,11 @@
       cell.setAttribute('aria-label', `Inventory slot ${i+1}`);
       frag.appendChild(cell);
     }
-    inv.appendChild(frag);
+    if (typeof inv.prepend === 'function') {
+      inv.prepend(frag);
+    } else {
+      inv.insertBefore(frag, inv.firstChild || null);
+    }
   }
 
   function px(n){ return Math.max(0, Math.floor(n)); }
@@ -83,16 +98,6 @@
   layoutInventory();
   window.addEventListener('resize', layoutInventory);
 
-  // Remove hammer item entirely and clear its saved state
-  (function removeHammer(){
-    document.querySelectorAll('[data-item-id="hammer"]').forEach(el => el.remove());
-    const st = loadItems();
-    if (st && st['hammer']) {
-      delete st['hammer'];
-      saveItems(st);
-    }
-  })();
-
   // ---- Drag and Drop between inventory and boxes ----
   const LS_ITEMS = 'poc_items_state_v1';
   function loadItems(){
@@ -129,15 +134,132 @@
     return {col, row};
   }
 
-  function findBoxContentAt(clientX, clientY){
+  function findBoxContentAt(clientX, clientY, showPreview = false){
     const contents = document.querySelectorAll('.draggable-box .box-content');
     for (const el of contents) {
-      const r = el.getBoundingClientRect();
-      if (clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom) {
+      const expanded = getExpandedRect(el);
+      if (pointInRect(clientX, clientY, expanded)) {
+        currentHoverBox = { content: el, rect: expanded };
+        if (showPreview) {
+          showDropAreaPreviewRect(expanded.left, expanded.top, expanded.width, expanded.height);
+        }
         return el;
       }
     }
+    currentHoverBox = null;
+    if (showPreview) hideDropAreaPreview();
     return null;
+  }
+  function getExpandedRect(boxContent){
+    const box = boxContent.closest('.draggable-box');
+    const sourceRect = box ? box.getBoundingClientRect() : boxContent.getBoundingClientRect();
+    const expandX = sourceRect.width * 0.5;
+    const expandY = sourceRect.height * 0.5;
+    return {
+      left: sourceRect.left - expandX,
+      top: sourceRect.top - expandY,
+      width: sourceRect.width + expandX * 2,
+      height: sourceRect.height + expandY * 2,
+    };
+  }
+  function pointInRect(x, y, rect){
+    return rect && x >= rect.left && x <= rect.left + rect.width &&
+      y >= rect.top && y <= rect.top + rect.height;
+  }
+
+  function hideDropPreview(){
+    dropPreview.style.display = 'none';
+  }
+  function showDropPreviewRect(left, top, width, height, boxMode){
+    dropPreview.style.display = 'block';
+    dropPreview.style.left = `${left}px`;
+    dropPreview.style.top = `${top}px`;
+    dropPreview.style.width = `${Math.max(0, width)}px`;
+    dropPreview.style.height = `${Math.max(0, height)}px`;
+    dropPreview.classList.toggle('box-mode', !!boxMode);
+  }
+  function previewInventoryPlacement(col, row, w, h){
+    const {cell, gap} = getCellSize();
+    const r = invRect();
+    const left = r.left + (col - 1) * (cell + gap);
+    const top = r.top + (row - 1) * (cell + gap);
+    const width = w * cell + (w - 1) * gap;
+    const height = h * cell + (h - 1) * gap;
+    showDropPreviewRect(left, top, width, height, false);
+  }
+  function previewBoxArea(boxContent){
+    const box = boxContent.closest('.draggable-box');
+    const target = box ? box.getBoundingClientRect() : boxContent.getBoundingClientRect();
+    showDropPreviewRect(target.left, target.top, target.width, target.height, true);
+  }
+  function hideDropAreaPreview(){
+    dropAreaPreview.style.display = 'none';
+  }
+  function showDropAreaPreviewRect(left, top, width, height){
+    dropAreaPreview.style.display = 'block';
+    dropAreaPreview.style.left = `${left}px`;
+    dropAreaPreview.style.top = `${top}px`;
+    dropAreaPreview.style.width = `${Math.max(0, width)}px`;
+    dropAreaPreview.style.height = `${Math.max(0, height)}px`;
+  }
+  function getBoxInfo(boxContent){
+    const box = boxContent.closest('.draggable-box');
+    return {
+      boxId: box?.getAttribute('data-id') || '',
+      slotType: getBoxSlotType(boxContent)
+    };
+  }
+  function getItemType(item){
+    return (item?.dataset?.itemType || '').trim().toLowerCase();
+  }
+  function getBoxSlotType(boxContent){
+    const box = boxContent.closest('.draggable-box');
+    return (box?.dataset?.slotType || '').trim().toLowerCase();
+  }
+  function getBoxTitle(boxContent){
+    const box = boxContent.closest('.draggable-box');
+    const title = box?.querySelector('.box-title')?.textContent || '';
+    return title.trim();
+  }
+  function canDropInBox(item, boxContent){
+    const type = getItemType(item);
+    const required = getBoxSlotType(boxContent);
+    if (required && (!type || type !== required)) return false;
+    return true;
+  }
+  function getItemEffects(itemId){
+    return null;
+  }
+  function dispatchEquipmentChange(item, equipped, slotType){
+    if (!item) return;
+    const itemId = item.dataset.itemId || '';
+    if (!itemId) return;
+    const effects = getItemEffects(itemId);
+    const detail = { itemId, itemType: getItemType(item) || '', equipped: !!equipped };
+    if (slotType) detail.slotType = slotType;
+    if (effects) detail.effects = effects;
+    if (!equipmentEventsEnabled) {
+      pendingEquipmentEvents.push(detail);
+    } else {
+      window.dispatchEvent(new CustomEvent('inventory:equipment-change', { detail }));
+    }
+  }
+  function clearEquipmentState(item){
+    if (!item?.dataset?.equippedSlot) return;
+    const prevType = item.dataset.equippedSlotType || '';
+    delete item.dataset.equippedSlot;
+    delete item.dataset.equippedSlotType;
+    dispatchEquipmentChange(item, false, prevType);
+  }
+  function applyEquipmentState(item, boxId, slotType){
+    if (!item) return;
+    if (item.dataset.equippedSlot === boxId) return;
+    clearEquipmentState(item);
+    if (!boxId) return;
+    item.dataset.equippedSlot = boxId;
+    if (slotType) item.dataset.equippedSlotType = slotType;
+    else delete item.dataset.equippedSlotType;
+    dispatchEquipmentChange(item, true, slotType || '');
   }
 
   function applyItemState(item, st){
@@ -156,6 +278,7 @@
       item.style.setProperty('--w', w);
       item.style.setProperty('--h', h);
       item.style.removeProperty('--scale');
+      clearEquipmentState(item);
     } else if (st.loc === 'box' && st.boxId) {
       const box = document.querySelector(`.draggable-box[data-id="${st.boxId}"] .box-content`);
       if (box) {
@@ -166,6 +289,8 @@
         item.style.removeProperty('--row');
         // Scale to fit box
         scaleItemToBox(item, box);
+        const info = getBoxInfo(box);
+        applyEquipmentState(item, info.boxId, info.slotType);
       }
     }
   }
@@ -176,44 +301,77 @@
     const id = item.dataset.itemId;
     if (id && itemsState[id]) applyItemState(item, itemsState[id]);
   });
-  // No hammer state enforcement needed since it's removed
 
   function startDrag(e){
     const item = e.currentTarget;
     const id = item.dataset.itemId;
     if (!id) return;
     e.preventDefault();
+    hideDropPreview();
     const pointerId = e.pointerId;
     item.setPointerCapture?.(pointerId);
+    item.classList.add('dragging');
     const startRect = item.getBoundingClientRect();
     const offsetX = e.clientX - startRect.left;
     const offsetY = e.clientY - startRect.top;
+    const startWidth = startRect.width;
+    const startHeight = startRect.height;
+    const itemW = parseInt(item.style.getPropertyValue('--w') || '1', 10) || 1;
+    const itemH = parseInt(item.style.getPropertyValue('--h') || '1', 10) || 1;
 
     // Drag ghost
     const ghost = item.cloneNode(true);
+    ghost.classList.remove('dragging');
     ghost.style.position = 'fixed';
     ghost.style.left = (e.clientX - offsetX) + 'px';
     ghost.style.top = (e.clientY - offsetY) + 'px';
     ghost.style.pointerEvents = 'none';
     ghost.style.opacity = '0.9';
     ghost.style.zIndex = '9999';
+    ghost.style.width = `${startWidth}px`;
+    ghost.style.height = `${startHeight}px`;
     document.body.appendChild(ghost);
+
+    function updateDropPreview(ev){
+      const dropCell = pointToCell(ev.clientX, ev.clientY);
+      const boxContent = findBoxContentAt(ev.clientX, ev.clientY, true);
+      if (dropCell) {
+        const col = Math.min(COLS - (itemW - 1), Math.max(1, dropCell.col));
+        const row = Math.min(ROWS - (itemH - 1), Math.max(1, dropCell.row));
+        previewInventoryPlacement(col, row, itemW, itemH);
+        hideDropAreaPreview();
+      } else if (boxContent) {
+        if (canDropInBox(item, boxContent)) {
+          previewBoxArea(boxContent);
+        } else {
+          hideDropPreview();
+          hideDropAreaPreview();
+        }
+      } else {
+        hideDropPreview();
+        hideDropAreaPreview();
+      }
+    }
 
     function onMove(ev){
       ghost.style.left = (ev.clientX - offsetX) + 'px';
       ghost.style.top = (ev.clientY - offsetY) + 'px';
+      updateDropPreview(ev);
     }
     function onUp(ev){
+      updateDropPreview(ev);
       item.releasePointerCapture?.(pointerId);
       document.removeEventListener('pointermove', onMove, true);
       document.removeEventListener('pointerup', onUp, true);
+      item.classList.remove('dragging');
+      hideDropPreview();
       const dropCell = pointToCell(ev.clientX, ev.clientY);
-      const boxContent = findBoxContentAt(ev.clientX, ev.clientY);
-      const st = loadItems();
-      if (dropCell) {
-        // Drop to inventory grid (snap to cell), ensure fits within bounds for its size
-        const w = parseInt(item.style.getPropertyValue('--w') || '1', 10) || 1;
-        const h = parseInt(item.style.getPropertyValue('--h') || '1', 10) || 1;
+      const boxContent = findBoxContentAt(ev.clientX, ev.clientY, true);
+    const st = loadItems();
+    if (dropCell) {
+      // Drop to inventory grid (snap to cell), ensure fits within bounds for its size
+        const w = itemW;
+        const h = itemH;
         const col = Math.min(COLS - (w - 1), Math.max(1, dropCell.col));
         const row = Math.min(ROWS - (h - 1), Math.max(1, dropCell.row));
         if (item.parentElement !== inv) inv.appendChild(item);
@@ -223,24 +381,36 @@
         item.style.removeProperty('--scale');
         st[id] = { loc: 'inv', col, row, w, h };
         saveItems(st);
-      } else if (boxContent) {
+        clearEquipmentState(item);
+      }
+      let targetBoxContent = boxContent;
+      if (!targetBoxContent && currentHoverBox && pointInRect(ev.clientX, ev.clientY, currentHoverBox.rect)) {
+        targetBoxContent = currentHoverBox.content;
+      }
+      if (targetBoxContent && canDropInBox(item, targetBoxContent)) {
         // Drop into a box area
-        boxContent.appendChild(item);
+        targetBoxContent.appendChild(item);
         item.classList.remove('in-inventory');
         item.style.removeProperty('--col');
         item.style.removeProperty('--row');
-        const box = boxContent.closest('.draggable-box');
+        const box = targetBoxContent.closest('.draggable-box');
         const boxId = box?.getAttribute('data-id');
         if (boxId) {
-          const w = parseInt(item.style.getPropertyValue('--w') || '1', 10) || 1;
-          const h = parseInt(item.style.getPropertyValue('--h') || '1', 10) || 1;
+          const w = itemW;
+          const h = itemH;
           st[id] = { loc: 'box', boxId, w, h };
           saveItems(st);
           // Scale item to fit inside the box content
-          scaleItemToBox(item, boxContent);
+          scaleItemToBox(item, targetBoxContent);
+          const info = getBoxInfo(targetBoxContent);
+          applyEquipmentState(item, info.boxId, info.slotType);
         }
+      } else if (targetBoxContent) {
+        // box hovered but item not allowed; ignore drop
       }
       ghost.remove();
+      hideDropPreview();
+      hideDropAreaPreview();
     }
     document.addEventListener('pointermove', onMove, true);
     document.addEventListener('pointerup', onUp, true);
@@ -250,7 +420,20 @@
   function bindItemDrag(item){
     item.addEventListener('pointerdown', startDrag);
   }
-  document.querySelectorAll('.inventory .item, .box-content .item').forEach(bindItemDrag);
+
+  document.querySelectorAll('.inventory .item, .box-content .item').forEach((item) => {
+    bindItemDrag(item);
+  });
+  enableEquipmentEvents();
+
+  function enableEquipmentEvents(){
+    if (equipmentEventsEnabled) return;
+    equipmentEventsEnabled = true;
+    while (pendingEquipmentEvents.length) {
+      const detail = pendingEquipmentEvents.shift();
+      window.dispatchEvent(new CustomEvent('inventory:equipment-change', { detail }));
+    }
+  }
 
   // Scale item to fit into the given box content area if it's larger
   function scaleItemToBox(item, boxContent){

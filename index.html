@@ -72,11 +72,6 @@
           </div>
         </div>
         <div class="inventory" aria-label="Inventory grid (12 x 12)"></div>
-        <!-- Manual controls toolbar -->
-        <div class="left-toolbar" aria-label="Manual save/restore controls">
-          <button type="button" class="btn-save" title="현재 배치를 스냅샷으로 저장">저장</button>
-          <button type="button" class="btn-restore" title="저장된 스냅샷으로 되돌리기">되돌리기</button>
-        </div>
       </section>
       <section class="panel center" aria-label="Center panel"></section>
       <section class="panel right" aria-label="Right panel">
@@ -100,19 +95,15 @@
             </div>
             <div class="progress-text">현재 레벨 경험치 0 / 필요 0 (남은 0)</div>
           </div>
-          <div class="levels-table-wrap">
-            <table class="levels-table" aria-label="레벨 테이블">
-              <thead>
-                <tr><th>레벨</th><th>필요 경험치</th></tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
           <div class="levels-error" role="status" aria-live="assertive" hidden></div>
         </div>
         <div class="stats-panel" aria-label="Blacksmith stats">
-          <h2 class="stats-title">대장장이 능력치</h2>
-          <div class="stat-points" aria-live="polite">남은 포인트: <span class="points-value">0</span></div>
+          <h2 class="stats-title">
+            능력치
+            <span class="stat-points" aria-live="polite">
+              남은 포인트: <span class="points-value">0</span>
+            </span>
+          </h2>
           <div class="stats-list" role="list" aria-live="polite"></div>
           <div class="stats-error" role="status" aria-live="assertive" hidden></div>
         </div>
@@ -121,8 +112,310 @@
     <script src="boxes.js?v=20251113-5"></script>
     <script src="inventory.js?v=20251113-5"></script>
     <script src="sheets.js?v=20251113-5"></script>
-    <script src="controls.js?v=20251113-5"></script>
     <script src="stats.js?v=20251113-14"></script>
   <script src="levels.js?v=20251114-4"></script>
+  <script>
+    (function(){
+      const chips = document.querySelectorAll('.resource-chip');
+      chips.forEach(chip => {
+        const stockEl = chip.querySelector('.resource-stock');
+        const btn = chip.querySelector('.resource-add-btn');
+        if (!stockEl || !btn) return;
+        let count = parseInt(stockEl.textContent.replace(/[^0-9-]/g,''), 10) || 0;
+        btn.addEventListener('click', () => {
+          count += 100;
+          stockEl.textContent = formatCount(count);
+        });
+      });
+      function formatCount(num){
+        return `${num.toLocaleString()}개`;
+      }
+    })();
+  </script>
+  <script>
+    (function(){
+      const btn = document.querySelector('.center-float-btn');
+      const line = document.querySelector('.center-cross-line');
+      const label = document.querySelector('.center-perfect');
+      if (!btn || !line || !label) return;
+
+      const BEAT = 600;
+      const DISPLAY = 400;
+      const DOT_COUNT = 10;
+      const MIN_BEAT = 0.5;
+
+      let activeDots = 0;
+      let labelTimer = null;
+      let isRunning = false;
+      const judgedDots = new WeakSet();
+      const HAMMER_SOUND_PATHS = [
+        'C:/Users/5MINLAB/Documents/GitHub/POC/POC/Assets/Sound/망치 소리.mp3',
+        'Assets/Sound/망치 소리.mp3',
+        'Assets/Sound/%EB%A7%9D%EC%B9%98%20%EC%86%8C%EB%A6%AC.mp3',
+      ];
+      let hammerSoundIndex = 0;
+      let hammerSound = createHammerSound(hammerSoundIndex);
+
+      btn.addEventListener('click', () => {
+        const hadDots = !!line.querySelector('.line-dot');
+        const overlapStatus = checkCurrentOverlap();
+        if (overlapStatus){
+          colorDot(overlapStatus.dot, overlapStatus.type);
+          showLabel(overlapStatus.type);
+          document.dispatchEvent(new CustomEvent('weapon:judged'));
+        } else if (line.querySelector('.line-dot')) {
+          showLabel('fail');
+          document.dispatchEvent(new CustomEvent('weapon:judged'));
+        }
+        if (hadDots) playHammerSound();
+        if (isRunning || line.querySelector('.line-dot')) return;
+        isRunning = true;
+        const offsets = generateOffsets();
+        document.dispatchEvent(new CustomEvent('weapon:reset'));
+        offsets.forEach(offset => spawnDot(offset));
+      });
+
+      function spawnDot(offsetBeats){
+        const delayMs = offsetBeats * BEAT;
+        const dot = document.createElement('div');
+        dot.className = 'line-dot';
+        dot.style.animationDelay = `${delayMs / 1000}s`;
+        line.appendChild(dot);
+        activeDots++;
+        dot.addEventListener('animationend', () => {
+          dot.remove();
+          activeDots--;
+          if (activeDots <= 0){
+            isRunning = false;
+          }
+        });
+      }
+
+      function colorDot(dot, type){
+        if (!dot) return;
+        judgedDots.add(dot);
+        dot.classList.remove('dot-perfect','dot-good','dot-fail');
+        if (type === 'perfect') dot.classList.add('dot-perfect');
+        else if (type === 'good') dot.classList.add('dot-good');
+        else if (type === 'fail') dot.classList.add('dot-fail');
+      }
+
+      function checkCurrentOverlap(){
+        const dots = Array.from(line.querySelectorAll('.line-dot'));
+        if (!dots.length) return null;
+        const btnRect = btn.getBoundingClientRect();
+        const activeDots = dots.filter(dot => {
+          const rect = dot.getBoundingClientRect();
+          return rect.right >= btnRect.left && rect.left <= btnRect.right;
+        });
+        if (!activeDots.length) return null;
+        for (const dot of activeDots){
+          if (judgedDots.has(dot)) continue;
+          if (!isWithinTolerance(dot, btn, 0.5)) continue;
+          if (isFullyInside(dot, btn)) return { dot, type: 'perfect' };
+          if (isMostlyInside(dot, btn)) return { dot, type: 'good' };
+          return { dot, type: 'fail' };
+        }
+        return null;
+      }
+
+      function isFullyInside(inner, outer){
+        return insideWithTolerance(inner, outer, 0.1);
+      }
+
+      function isMostlyInside(inner, outer){
+        return insideWithTolerance(inner, outer, 0.4);
+      }
+
+      function isWithinTolerance(inner, outer, tolerance){
+        return insideWithTolerance(inner, outer, tolerance);
+      }
+
+      function generateOffsets(){
+        const offsets = [];
+        let current = 0;
+        for (let i = 0; i < DOT_COUNT; i++){
+          const extra = Math.random() * 1.5; // add variability
+          current += MIN_BEAT + extra;
+          offsets.push(+current.toFixed(2));
+        }
+        return offsets;
+      }
+
+      function insideWithTolerance(inner, outer, tolerance){
+        const ir = inner.getBoundingClientRect();
+        const or = outer.getBoundingClientRect();
+        const innerR = ir.width / 2;
+        const outerR = or.width / 2;
+        const innerCenter = { x: ir.left + innerR, y: ir.top + innerR };
+        const outerCenter = { x: or.left + outerR, y: or.top + outerR };
+        const distance = Math.hypot(innerCenter.x - outerCenter.x, innerCenter.y - outerCenter.y);
+        const allowed = outerR + outerR * tolerance - innerR;
+        return distance <= allowed;
+      }
+
+      function showLabel(type){
+        if (!type) return;
+        label.textContent = type === 'perfect' ? 'Perfect' : type === 'good' ? 'Good' : 'Fail';
+        label.classList.remove('perfect','good','fail');
+        label.classList.add(type);
+        label.hidden = false;
+        label.classList.add('show');
+        clearTimeout(labelTimer);
+        labelTimer = setTimeout(() => {
+          label.classList.remove('show');
+          label.hidden = true;
+        }, DISPLAY);
+      }
+
+      function playHammerSound(){
+        attemptHammerSound(hammerSoundIndex);
+      }
+
+      function createHammerSound(idx){
+        const audio = new Audio(HAMMER_SOUND_PATHS[idx]);
+        audio.preload = 'auto';
+        return audio;
+      }
+
+      function attemptHammerSound(idx){
+        if (!hammerSound) return;
+        try { hammerSound.currentTime = 0; } catch {}
+        const playPromise = hammerSound.play();
+        if (!playPromise || typeof playPromise.then !== 'function') return;
+        playPromise.catch(() => {
+          if (idx < HAMMER_SOUND_PATHS.length - 1){
+            hammerSoundIndex = idx + 1;
+            hammerSound = createHammerSound(hammerSoundIndex);
+            attemptHammerSound(hammerSoundIndex);
+          }
+        });
+      }
+    })();
+  </script>
+  <script>
+    (function(){
+      const wrap = document.querySelector('.center-toggle');
+      if (!wrap) return;
+      const subToggle = document.querySelector('.center-sub-toggle');
+      const weaponContainer = document.querySelector('.center-sub-weapon');
+      const weaponSilhouette = weaponContainer?.querySelector('.weapon-silhouette');
+      const weaponSlicesContainer = weaponContainer?.querySelector('.weapon-slices');
+      const weaponInfo = document.querySelector('.center-golf-info');
+      let weaponSlices = [];
+      let filledSlices = 0;
+      let currentWeaponMode = 'weapon';
+      let currentWeaponSub = 'sword';
+
+      function buildWeaponSlices(){
+        if (!weaponSlicesContainer) return;
+        weaponSlicesContainer.innerHTML = '';
+        for (let i = 0; i < DOT_COUNT; i++){
+          const slice = document.createElement('div');
+          slice.className = 'weapon-slice';
+          const left = (i / DOT_COUNT) * 100;
+          const right = ((DOT_COUNT - i - 1) / DOT_COUNT) * 100;
+          slice.style.setProperty('--slice-left', `${left}%`);
+          slice.style.setProperty('--slice-right', `${right}%`);
+          weaponSlicesContainer.appendChild(slice);
+        }
+        weaponSlices = Array.from(weaponSlicesContainer.children);
+        resetWeaponSlices();
+      }
+
+      function resetWeaponSlices(){
+        if (currentWeaponSub !== 'sword') return;
+        if (!weaponSlices.length) return;
+        filledSlices = 0;
+        weaponSlices?.forEach((slice) => slice.classList.remove('filled'));
+        if (weaponSilhouette) weaponSilhouette.style.opacity = '0.25';
+      }
+
+      function fillNextWeaponSlice(){
+        if (currentWeaponSub !== 'sword') return;
+        if (!weaponSlices.length) buildWeaponSlices();
+        if (filledSlices < weaponSlices.length){
+          weaponSlices[filledSlices].classList.add('filled');
+          filledSlices++;
+          if (filledSlices >= weaponSlices.length && weaponSilhouette){
+            weaponSilhouette.style.opacity = '0.05';
+          }
+        }
+      }
+
+      function updateWeaponInfoVisibility(){
+        if (!weaponInfo) return;
+        if (currentWeaponMode === 'weapon' && currentWeaponSub === 'sword' && !weaponInfo.dataset.dismissed){
+          weaponInfo.hidden = false;
+        } else {
+          weaponInfo.hidden = true;
+        }
+      }
+
+      function updateSubToggle(mode){
+        currentWeaponMode = mode;
+        if (subToggle) subToggle.hidden = mode !== 'weapon';
+        const shouldShowWeapon = mode === 'weapon' && currentWeaponSub === 'sword';
+        if (weaponContainer) weaponContainer.hidden = !shouldShowWeapon;
+        if (mode !== 'weapon' && weaponInfo){
+          weaponInfo.hidden = true;
+          weaponInfo.dataset.dismissed = '1';
+        }
+        updateWeaponInfoVisibility();
+      }
+
+      function updateWeaponImage(sub){
+        currentWeaponSub = sub;
+        const shouldShowWeapon = currentWeaponMode === 'weapon' && sub === 'sword';
+        if (weaponContainer) weaponContainer.hidden = !shouldShowWeapon;
+        if (sub === 'sword'){
+          if (weaponInfo) delete weaponInfo.dataset.dismissed;
+          if (!weaponSlices.length) buildWeaponSlices();
+          resetWeaponSlices();
+        } else if (weaponInfo){
+          weaponInfo.hidden = true;
+          weaponInfo.dataset.dismissed = '1';
+        }
+        updateWeaponInfoVisibility();
+      }
+
+      const initialActive = wrap.querySelector('.toggle-btn.active');
+      if (initialActive) updateSubToggle(initialActive.dataset.mode || '');
+
+      wrap.addEventListener('click', (ev) => {
+        const btn = ev.target.closest('.toggle-btn');
+        if (!btn || btn.classList.contains('active')) return;
+        wrap.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        updateSubToggle(btn.dataset.mode || '');
+      });
+
+      if (subToggle) {
+        subToggle.addEventListener('click', (ev) => {
+          const btn = ev.target.closest('.sub-toggle-btn');
+          if (!btn || btn.classList.contains('active')) return;
+          subToggle.querySelectorAll('.sub-toggle-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          updateWeaponImage(btn.dataset.sub || '');
+        });
+        const initialSub = subToggle.querySelector('.sub-toggle-btn.active');
+        if (initialSub) updateWeaponImage(initialSub.dataset.sub || '');
+      } else {
+        updateWeaponImage('sword');
+      }
+
+      if (weaponInfo) {
+        const golfBtn = document.querySelector('.center-float-btn');
+        golfBtn?.addEventListener('click', () => {
+          weaponInfo.dataset.dismissed = '1';
+          weaponInfo.hidden = true;
+        });
+        weaponInfo.hidden = false;
+      }
+      document.addEventListener('weapon:reset', resetWeaponSlices);
+      document.addEventListener('weapon:judged', fillNextWeaponSlice);
+    })();
+  </script>
   </body>
 </html>
+

@@ -6,7 +6,6 @@
   const panel = document.querySelector('.panel.right .levels-panel');
   if (!panel) return;
   const selectEl = panel.querySelector('.level-select'); // Will be auto-driven (disabled)
-  const tableBody = panel.querySelector('.levels-table tbody');
   const errEl = panel.querySelector('.levels-error');
   const expInput = panel.querySelector('.current-exp-input');
   // Removed exp-minus / exp-plus buttons
@@ -14,6 +13,7 @@
   const progFill = panel.querySelector('.progress-fill');
   const progText = panel.querySelector('.progress-text');
   const progPercent = panel.querySelector('.progress-percent');
+  const levelTitleValue = panel.querySelector('.levels-title-value');
 
   const LS = 'poc_level_state_v1';
   function loadState(){ try { return JSON.parse(localStorage.getItem(LS) || '{}') || {}; } catch { return {}; } }
@@ -94,6 +94,10 @@
 
   function updateUI(totalExp){
     const { level, levelIndex, expInto, reqForNext } = deriveLevel(totalExp);
+    // Show current level near the title
+    if (levelTitleValue){
+      levelTitleValue.textContent = `Lv ${level.toLocaleString()}`;
+    }
     // Select element reflect current level (disabled to avoid manual override)
     if (selectEl){
       if (!selectEl.options.length){
@@ -112,28 +116,39 @@
     }
     // Progress bar
     if (reqForNext > 0){
+
       const ratio = Math.max(0, Math.min(1, expInto / reqForNext));
+
       const pct = (ratio * 100);
-      if (progFill) progFill.style.width = pct.toFixed(1) + '%';
+
+      const pctText = pct.toFixed(1) + '%';
+
+      if (progFill) progFill.style.width = pctText;
+
       if (progBar) progBar.setAttribute('aria-valuenow', String(Math.round(pct)));
-      if (progPercent) progPercent.textContent = pct.toFixed(1) + '%';
+
+      if (progPercent) progPercent.textContent = pctText;
+
       const remaining = Math.max(0, reqForNext - expInto);
-      if (progText) progText.textContent = `현재 레벨 경험치 ${expInto.toLocaleString()} / 필요 ${reqForNext.toLocaleString()} (남은 ${remaining.toLocaleString()})`;
+
+      if (progText) progText.textContent = `${pctText}
+현재 레벨 경험치 ${expInto.toLocaleString()} / 남은 ${remaining.toLocaleString()} / 필요 ${reqForNext.toLocaleString()}`;
+
     } else {
+
       // Max level reached
+
       if (progFill) progFill.style.width = '100%';
+
       if (progBar) progBar.setAttribute('aria-valuenow','100');
+
       if (progPercent) progPercent.textContent = 'MAX';
-      if (progText) progText.textContent = `최대 레벨 (총 경험치 ${totalExp.toLocaleString()})`;
+
+      if (progText) progText.textContent = `MAX
+최대 레벨 (누적 경험치 ${totalExp.toLocaleString()})`;
+
     }
-    // Table: show current level & next requirement
-    if (tableBody){
-      tableBody.innerHTML = '';
-      const tr = document.createElement('tr');
-      const tdL = document.createElement('td'); tdL.textContent = String(level);
-      const tdR = document.createElement('td'); tdR.textContent = reqForNext > 0 ? String(reqForNext) : '-';
-      tr.appendChild(tdL); tr.appendChild(tdR); tableBody.appendChild(tr);
-    }
+
     // Persist & dispatch level change if changed
     const st = loadState();
     if (st.totalExp !== totalExp || st.levelIndex !== levelIndex){
