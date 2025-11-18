@@ -7,6 +7,10 @@
   <link rel="stylesheet" href="styles.css?v=20251113-10" />
   </head>
   <body>
+    <div class="center-toggle" role="group" aria-label="가운데 패널 보기 선택">
+      <button type="button" class="toggle-btn active" data-mode="weapon" aria-pressed="true">무기</button>
+      <button type="button" class="toggle-btn" data-mode="gear" aria-pressed="false">장비</button>
+    </div>
     <main class="layout" aria-label="Three column layout">
       <section class="panel left" aria-label="Left panel">
         <div class="boxes-layer" aria-label="Draggable boxes layer">
@@ -341,6 +345,19 @@
       let currentWeaponMode = 'weapon';
       let currentWeaponSub = 'sword';
 
+      function syncTogglePressed(){
+        wrap.querySelectorAll('.toggle-btn').forEach((btn) => {
+          btn.setAttribute('aria-pressed', btn.classList.contains('active') ? 'true' : 'false');
+        });
+      }
+
+      function syncSubTogglePressed(){
+        if (!subToggle) return;
+        subToggle.querySelectorAll('.sub-toggle-btn').forEach((btn) => {
+          btn.setAttribute('aria-pressed', btn.classList.contains('active') ? 'true' : 'false');
+        });
+      }
+
       function buildWeaponSlices(){
         if (!weaponSlicesContainer) return;
         weaponSlicesContainer.innerHTML = '';
@@ -415,6 +432,7 @@
 
       const initialActive = wrap.querySelector('.toggle-btn.active');
       if (initialActive) updateSubToggle(initialActive.dataset.mode || '');
+      syncTogglePressed();
 
       wrap.addEventListener('click', (ev) => {
         const btn = ev.target.closest('.toggle-btn');
@@ -422,6 +440,7 @@
         wrap.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         updateSubToggle(btn.dataset.mode || '');
+        syncTogglePressed();
       });
 
       if (subToggle) {
@@ -431,9 +450,11 @@
           subToggle.querySelectorAll('.sub-toggle-btn').forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
           updateWeaponImage(btn.dataset.sub || '');
+          syncSubTogglePressed();
         });
         const initialSub = subToggle.querySelector('.sub-toggle-btn.active');
         if (initialSub) updateWeaponImage(initialSub.dataset.sub || '');
+        syncSubTogglePressed();
       } else {
         updateWeaponImage('sword');
       }
