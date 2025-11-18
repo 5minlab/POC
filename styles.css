@@ -195,6 +195,9 @@ body {
 .panel.right .stats-panel {
   padding-top: 12px;
 }
+.affinity-panel {
+  margin-top: 24px;
+}
 .right-split {
   display: flex;
   gap: 24px;
