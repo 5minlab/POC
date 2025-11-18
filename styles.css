@@ -172,6 +172,7 @@ body {
   pointer-events: auto;
   cursor: grab;
   touch-action: none;
+  overflow: hidden;
 }
 
 .inventory .item .label {
@@ -185,6 +186,13 @@ body {
   object-fit: contain;
   pointer-events: none;
   user-select: none;
+  display: block;
+  transition: transform 0.1s ease, opacity 0.1s ease;
+}
+
+.inventory .item.dragging .item-image {
+  transform: scale(0.01);
+  opacity: 0;
 }
 
 
