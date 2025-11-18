@@ -6,6 +6,7 @@
 
   const panel = document.querySelector('.panel.right .stats-panel');
   const list = document.querySelector('.panel.right .stats-list');
+  const affinityList = document.querySelector('.panel.right .affinity-list');
   const errEl = document.querySelector('.panel.right .stats-error');
   const pointsEl = document.querySelector('.panel.right .stat-points .points-value');
   if (!panel || !list) return;
@@ -13,6 +14,7 @@
   const LS_ALLOC = 'poc_stat_alloc_v1';
   const LS_LEVEL = 'poc_level_state_v1';
   const STATS = ['힘', '재주', '지능', '화술', '행운'];
+  const AFFINITY_STATS = ['화염', '냉기', '번개', '빛', '암흑'];
 
   let base = createZeroMap();
   let alloc = { ...createZeroMap(), ...loadAlloc() };
@@ -141,6 +143,27 @@
     updatePointsUI();
   }
 
+  function renderAffinityRows(){
+    if (!affinityList) return;
+    affinityList.innerHTML = '';
+    const frag = document.createDocumentFragment();
+    AFFINITY_STATS.forEach((key) => {
+      const row = document.createElement('div');
+      row.className = 'stat-row';
+      const label = document.createElement('div');
+      label.className = 'stat-label';
+      label.textContent = key;
+      const value = document.createElement('div');
+      value.className = 'stat-value';
+      value.dataset.key = `affinity-${key}`;
+      value.textContent = formatValue(0);
+      row.appendChild(label);
+      row.appendChild(value);
+      frag.appendChild(row);
+    });
+    affinityList.appendChild(frag);
+  }
+
   function formatValue(v){ return (Math.round(v * 100) / 100).toString(); }
 
   function updatePointsUI(){
@@ -208,6 +231,7 @@
       base = parseBaseStats(csv);
       renderRows();
       onLevelChanged();
+      renderAffinityRows();
     } catch (e){
       if (errEl){
         errEl.hidden = false;
@@ -231,5 +255,6 @@
   window.addEventListener('level:changed', onLevelChanged);
   window.addEventListener('inventory:equipment-change', onEquipmentChange);
 
+  renderAffinityRows();
   load();
 })();
