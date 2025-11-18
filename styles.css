@@ -250,6 +250,9 @@ body {
 .stats-title {
   margin: 0 0 12px 0;
   font-size: 24px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
 }
 
 .stats-list {
@@ -410,8 +413,8 @@ body {
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 48px;
-  height: 48px;
+  width: 96px;
+  height: 96px;
   border-radius: 50%;
   border: none;
   background: linear-gradient(145deg, #f5f5f5, #d4d4d4);
@@ -594,5 +597,6 @@ body {
   font-size: 14px;
   color: inherit;
   font-weight: normal;
-  margin-left: 12px;
+  margin-left: 0;
+  margin-top: 4px;
 }
