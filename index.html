@@ -93,19 +93,34 @@
               <div class="progress-fill" style="width:0%"></div>
               <div class="progress-percent">0%</div>
             </div>
-            <div class="progress-text">현재 레벨 경험치 0 / 필요 0 (남은 0)</div>
+            <div class="progress-text">0%
+현재 레벨 경험치 0 / 남은 0 / 필요 0</div>
           </div>
-          <div class="levels-error" role="status" aria-live="assertive" hidden></div>
+          <div class="levels-error" role="status" aria-live="assertive" hidden>
+            레벨 데이터를 불러오지 못했어요. 시트를 공개/게시했는지 확인해주세요.
+          </div>
         </div>
-        <div class="stats-panel" aria-label="Blacksmith stats">
-          <h2 class="stats-title">
-            능력치
-            <span class="stat-points" aria-live="polite">
-              남은 포인트: <span class="points-value">0</span>
-            </span>
-          </h2>
-          <div class="stats-list" role="list" aria-live="polite"></div>
-          <div class="stats-error" role="status" aria-live="assertive" hidden></div>
+        <div class="right-split" aria-label="능력치 및 추가 영역">
+          <div class="split-column">
+            <div class="stats-panel" aria-label="능력치">
+              <h2 class="stats-title">
+                능력치
+                <span class="stat-points" aria-live="polite">
+                  남은 포인트: <span class="points-value">0</span>
+                </span>
+              </h2>
+              <div class="stats-list" role="list" aria-live="polite"></div>
+              <div class="stats-error" role="status" aria-live="assertive" hidden>
+                능력치를 불러오지 못했어요. 시트를 공개/게시했는지 확인해주세요.
+              </div>
+            </div>
+          </div>
+          <div class="split-column split-column--secondary">
+            <div class="placeholder-panel" aria-label="추가 패널">
+              <h2 class="placeholder-title">추가 패널</h2>
+              <p class="placeholder-text">이 공간에 필요한 정보를 배치하세요.</p>
+            </div>
+          </div>
         </div>
       </section>
     </main>

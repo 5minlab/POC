@@ -195,6 +195,38 @@ body {
 .panel.right .stats-panel {
   padding-top: 12px;
 }
+.right-split {
+  display: flex;
+  gap: 24px;
+  margin-top: 16px;
+  flex: 1 1 auto;
+}
+.split-column {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 260px;
+}
+.split-column + .split-column {
+  border-left: 1px solid rgba(0,0,0,0.15);
+  padding-left: 24px;
+}
+.split-column--secondary {
+  justify-content: center;
+}
+.placeholder-panel {
+  padding: 0 8px;
+}
+.placeholder-title {
+  margin: 0 0 12px 0;
+  font-size: 20px;
+  color: #111;
+}
+.placeholder-text {
+  margin: 0;
+  color: #555;
+  font-size: 14px;
+}
 .stats-title {
   margin: 0 0 12px 0;
   font-size: 24px;
@@ -216,12 +248,20 @@ body {
   box-shadow: 0 1px 2px rgba(0,0,0,0.08), inset 0 0 0 1px rgba(255,255,255,0.6);
 }
 .stat-row .stat-label { width: 64px; font-weight: 600; }
-.stat-row .stat-value { min-width: 56px; text-align: right; font-variant-numeric: tabular-nums; }
-.stat-row .stat-controls { margin-left: auto; display: inline-flex; gap: 6px; align-items: center; }
+.stat-row .stat-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+  padding-right: 0;
+}
+.stat-row .stat-controls {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
 .stat-btn {
   appearance: none; border: 1px solid rgba(0,0,0,0.3); background: #fff; border-radius: 6px; width: 28px; height: 28px; cursor: pointer;
 }
-.stat-alloc { min-width: 28px; text-align: center; font-variant-numeric: tabular-nums; }
 .stat-bullet {
   width: 10px;
   height: 10px;

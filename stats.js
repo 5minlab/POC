@@ -78,7 +78,19 @@
         lastErr = e;
       }
     }
-    throw lastErr || new Error('시트 로드 실패');
+    try {
+      const localCsv = await fetchLocalCSV();
+      if (localCsv && localCsv.trim().length) return localCsv;
+    } catch (localErr){
+      lastErr = localErr;
+    }
+    throw lastErr || new Error('시트를 로드하지 못했습니다.');
+  }
+
+  async function fetchLocalCSV(){
+    const res = await fetch('stats.csv', { cache: 'no-store' });
+    if (!res.ok) throw new Error(`로컬 CSV 로드 실패 (HTTP ${res.status})`);
+    return await res.text();
   }
 
   function parseBaseStats(csvText){
@@ -113,15 +125,10 @@
       const minus = document.createElement('button');
       minus.className = 'stat-btn stat-minus';
       minus.textContent = '−';
-      const allocSpan = document.createElement('span');
-      allocSpan.className = 'stat-alloc';
-      allocSpan.dataset.key = key;
-      allocSpan.textContent = String(parseInt(alloc[key] || 0, 10) || 0);
       const plus = document.createElement('button');
       plus.className = 'stat-btn stat-plus';
       plus.textContent = '+';
       controls.appendChild(minus);
-      controls.appendChild(allocSpan);
       controls.appendChild(plus);
       row.appendChild(label);
       row.appendChild(value);
@@ -156,9 +163,7 @@
   function refreshValues(){
     STATS.forEach((k) => {
       const vEl = list.querySelector(`.stat-value[data-key="${k}"]`);
-      const aEl = list.querySelector(`.stat-alloc[data-key="${k}"]`);
       const a = parseInt(alloc[k] || 0, 10) || 0;
-      if (aEl) aEl.textContent = String(a);
       if (vEl) vEl.textContent = formatValue(base[k] + a + getEquipBonusValue(k));
     });
     updatePointsUI();
