@@ -245,6 +245,7 @@ body {
   margin: 0;
   color: #555;
   font-size: 14px;
+  display: none;
 }
 .stats-title {
   margin: 0 0 12px 0;
