@@ -277,6 +277,7 @@ body {
   display: inline-flex;
   gap: 6px;
   align-items: center;
+  margin-right: 40px;
 }
 .stat-btn {
   appearance: none; border: 1px solid rgba(0,0,0,0.3); background: #fff; border-radius: 6px; width: 28px; height: 28px; cursor: pointer;
